@@ -11,6 +11,7 @@ type Site = {
   id: number;
   client_id: number;
   name: string;
+  address?: string | null;
 };
 
 type Asset = {
@@ -51,11 +52,19 @@ function normalizeHost(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
 }
 
+function extractSubnetOrDefault(value: string | null | undefined): string {
+  const raw = (value ?? "").trim();
+  const cidrPattern = /\b(?:\d{1,3}\.){3}\d{1,3}\/\d{1,2}\b/;
+  const match = raw.match(cidrPattern);
+  return match?.[0] ?? "192.168.10.0/24";
+}
+
 export default function NetworkScanPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [sitesLoading, setSitesLoading] = useState(true);
   const [sitesError, setSitesError] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedSiteId, setSelectedSiteId] = useState("");
   const [subnet, setSubnet] = useState("192.168.10.0/24");
 
@@ -101,8 +110,22 @@ export default function NetworkScanPage() {
         const mergedSites = siteResponses.flat();
         setSites(mergedSites);
 
-        if (mergedSites.length > 0) {
+        const firstClient = Array.isArray(allClients) && allClients[0] ? allClients[0] : null;
+        if (firstClient) {
+          setSelectedClientId(String(firstClient.id));
+          const firstSiteForClient = mergedSites.find((site) => site.client_id === firstClient.id);
+          if (firstSiteForClient) {
+            setSelectedSiteId(String(firstSiteForClient.id));
+            setSubnet(extractSubnetOrDefault(firstSiteForClient.address));
+          } else {
+            setSelectedSiteId("2");
+            setSubnet("192.168.10.0/24");
+          }
+        } else if (mergedSites.length > 0) {
           setSelectedSiteId(String(mergedSites[0].id));
+          setSubnet(extractSubnetOrDefault(mergedSites[0].address));
+        } else {
+          setSelectedSiteId("2");
         }
       } catch {
         setSitesError("Unable to load sites right now.");
@@ -114,6 +137,11 @@ export default function NetworkScanPage() {
     loadClientsAndSites();
   }, []);
 
+  const sitesForSelectedClient = useMemo(() => {
+    if (!selectedClientId) return sites;
+    return sites.filter((site) => String(site.client_id) === selectedClientId);
+  }, [selectedClientId, sites]);
+
   const selectedSite = useMemo(
     () => sites.find((site) => String(site.id) === selectedSiteId) ?? null,
     [selectedSiteId, sites]
@@ -124,6 +152,20 @@ export default function NetworkScanPage() {
     const client = clients.find((item) => item.id === selectedSite.client_id);
     return client?.name ?? "";
   }, [clients, selectedSite]);
+
+  useEffect(() => {
+    if (!sites.length) return;
+    const sitesForClient = sitesForSelectedClient;
+    const matchingSite = sitesForClient.find((site) => String(site.id) === selectedSiteId);
+    if (matchingSite) return;
+    if (sitesForClient[0]) {
+      setSelectedSiteId(String(sitesForClient[0].id));
+      setSubnet(extractSubnetOrDefault(sitesForClient[0].address));
+      return;
+    }
+    setSelectedSiteId("2");
+    setSubnet("192.168.10.0/24");
+  }, [selectedClientId, selectedSiteId, sites, sitesForSelectedClient]);
 
   const loadAssets = useCallback(async () => {
     if (!selectedSiteId) {
@@ -306,13 +348,35 @@ export default function NetworkScanPage() {
           <>
             <div className="scan-form-grid">
               <label className="form-field">
+                <span className="form-label">Client</span>
+                <select
+                  className="form-input"
+                  value={selectedClientId}
+                  onChange={(event) => setSelectedClientId(event.target.value)}
+                >
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="form-field">
                 <span className="form-label">Site</span>
                 <select
                   className="form-input"
                   value={selectedSiteId}
-                  onChange={(event) => setSelectedSiteId(event.target.value)}
+                  onChange={(event) => {
+                    const nextSiteId = event.target.value;
+                    setSelectedSiteId(nextSiteId);
+                    const nextSite = sites.find((site) => String(site.id) === nextSiteId);
+                    if (nextSite) {
+                      setSubnet(extractSubnetOrDefault(nextSite.address));
+                    }
+                  }}
                 >
-                  {sites.map((site) => {
+                  {sitesForSelectedClient.map((site) => {
                     const clientName =
                       clients.find((client) => client.id === site.client_id)?.name ?? "Client";
                     return (
@@ -321,6 +385,9 @@ export default function NetworkScanPage() {
                       </option>
                     );
                   })}
+                  {sitesForSelectedClient.length === 0 ? (
+                    <option value="2">Fallback site #2</option>
+                  ) : null}
                 </select>
               </label>
 
@@ -375,7 +442,17 @@ export default function NetworkScanPage() {
         {isScanning ? (
           <p className="status">Scanning network…</p>
         ) : discoveredDevices.length === 0 ? (
-          <p className="status">Run a scan to see discovered devices.</p>
+          <div className="empty-state">
+            <p className="status">No scan results yet.</p>
+            <p className="site-section-lead">
+              Choose a target and run Network Scan to discover hosts on the selected subnet.
+            </p>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={runNetworkScan}>
+                Run Network Scan
+              </button>
+            </div>
+          </div>
         ) : (
           <table className="table w-full max-md:!min-w-0">
             <thead>
@@ -438,7 +515,12 @@ export default function NetworkScanPage() {
         ) : scansError ? (
           <p className="error">{scansError}</p>
         ) : scans.length === 0 ? (
-          <p className="status">No scan history for this site yet.</p>
+          <div className="empty-state">
+            <p className="status">No scan history for this site yet.</p>
+            <p className="site-section-lead">
+              Start by running your first scan to build historical records.
+            </p>
+          </div>
         ) : (
           <table className="table w-full max-md:!min-w-0">
             <thead>

@@ -44,7 +44,7 @@ export default function AssetsPage() {
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
-            <h1 className="page__title">Assets</h1>
+            <h1 className="page__title">Inventory</h1>
             <p className="page__subtle">
               Hardware inventory across all clients and sites.
             </p>
@@ -75,10 +75,18 @@ export default function AssetsPage() {
       ) : assets.length === 0 ? (
         <section className="card">
           <p className="site-section-kicker">Inventory</p>
-          <h2 className="site-section-title">No assets found</h2>
+          <h2 className="site-section-title">No inventory items found</h2>
           <p className="status">
             Add assets from a site page to populate this inventory view.
           </p>
+          <div className="form-actions">
+            <Link href="/clients" className="btn">
+              Open Clients
+            </Link>
+            <Link href="/scan" className="btn-secondary">
+              Run Network Scan
+            </Link>
+          </div>
         </section>
       ) : (
         <section className="card table-wrap" aria-labelledby="assets-table-title">
@@ -105,7 +113,11 @@ export default function AssetsPage() {
             <tbody>
               {assets.map((asset) => (
                 <tr key={asset.id}>
-                  <td className="font-medium">{asset.name}</td>
+                  <td className="font-medium">
+                    <Link href={`/assets/${asset.id}`} className="asset-link">
+                      {asset.name}
+                    </Link>
+                  </td>
                   <td>{asset.type}</td>
                   <td className="hidden md:table-cell">{asset.serial_number}</td>
                   <td>{asset.status}</td>

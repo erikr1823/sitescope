@@ -90,7 +90,7 @@ export default function DashboardHomePage() {
               Open Clients
             </Link>
             <Link href="/assets" className="btn--ghost">
-              View Assets
+              View Inventory
             </Link>
             <Link href="/scan" className="btn-secondary">
               Run Network Scan
@@ -152,7 +152,11 @@ export default function DashboardHomePage() {
                 <tbody>
                   {data.recent_assets.map((asset) => (
                     <tr key={asset.id}>
-                      <td>{asset.name}</td>
+                      <td>
+                        <Link href={`/assets/${asset.id}`} className="asset-link">
+                          {asset.name}
+                        </Link>
+                      </td>
                       <td>{asset.type}</td>
                       <td className="hidden md:table-cell">{asset.serial_number}</td>
                       <td className="hidden md:table-cell">{asset.site_name}</td>

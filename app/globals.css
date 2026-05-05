@@ -474,6 +474,23 @@ a {
   color: var(--text-muted);
 }
 
+.empty-state {
+  display: grid;
+  gap: 10px;
+}
+
+.asset-link {
+  color: #dbeafe;
+  text-decoration: none;
+  border-bottom: 1px dashed transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.asset-link:hover {
+  color: #93c5fd;
+  border-color: rgba(147, 197, 253, 0.55);
+}
+
 .error {
   margin: 0;
   color: var(--danger);
@@ -515,6 +532,18 @@ a {
 
 .site-card__meta + .site-card__meta {
   margin-top: 2px;
+}
+
+.site-card__badge {
+  margin: 8px 0 0;
+  display: inline-flex;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.12);
+  color: #bfdbfe;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  line-height: 1.25;
 }
 
 @media (max-width: 640px) {
@@ -844,6 +873,25 @@ a {
   border-bottom: 1px solid rgba(36, 53, 79, 0.55);
 }
 
+.site-inventory-card__head-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+}
+
+.site-inventory-card__export-btn {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .site-inventory-card__export-btn {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
 .site-inventory-card__filters {
   margin-bottom: 1rem;
 }
@@ -912,7 +960,7 @@ a {
 
 @media (min-width: 900px) {
   .scan-form-grid {
-    grid-template-columns: minmax(260px, 1fr) minmax(220px, 1fr) auto;
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(220px, 1fr) auto;
     align-items: end;
   }
 

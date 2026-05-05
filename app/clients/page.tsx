@@ -85,7 +85,17 @@ export default function ClientsPage() {
           </header>
 
           {clients.length === 0 ? (
-            <p className="status">No clients to display.</p>
+            <div className="empty-state">
+              <p className="status">No clients to display yet.</p>
+              <p className="site-section-lead">
+                Add your first client to start organizing sites, inventory, and scans.
+              </p>
+              <div className="form-actions">
+                <Link href="/clients/new" className="btn">
+                  Create first client
+                </Link>
+              </div>
+            </div>
           ) : (
             <table className="table w-full max-md:!min-w-0">
               <thead>

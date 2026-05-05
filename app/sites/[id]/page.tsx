@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { CSSProperties } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Asset = {
@@ -115,6 +115,17 @@ export default function SiteAssetsPage() {
   const [scans, setScans] = useState<SiteScan[]>([]);
   const [scansLoading, setScansLoading] = useState(true);
   const [scansError, setScansError] = useState("");
+  const [manualFormOpen, setManualFormOpen] = useState(false);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState("");
+  const [manualSuccess, setManualSuccess] = useState("");
+  const [manualAsset, setManualAsset] = useState({
+    name: "",
+    type: "Other",
+    serial_number: "",
+    status: "Active",
+    notes: "",
+  });
 
   const filteredAssets = useMemo(
     () =>
@@ -314,6 +325,48 @@ export default function SiteAssetsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function saveManualAsset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!siteId || !manualAsset.name.trim() || manualSaving) return;
+
+    setManualSaving(true);
+    setManualError("");
+    setManualSuccess("");
+    try {
+      const response = await fetch("/api/assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: 1,
+          site_id: Number(siteId),
+          name: manualAsset.name.trim(),
+          type: manualAsset.type.trim() || "Other",
+          serial_number: manualAsset.serial_number,
+          status: manualAsset.status.trim() || "Active",
+          notes: manualAsset.notes.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to save manual asset");
+      }
+
+      setManualSuccess("Asset added to this site inventory.");
+      setManualAsset({
+        name: "",
+        type: "Other",
+        serial_number: "",
+        status: "Active",
+        notes: "",
+      });
+      await loadAssets();
+    } catch {
+      setManualError("Unable to add this asset right now.");
+    } finally {
+      setManualSaving(false);
+    }
+  }
+
   return (
     <main className="page site-page">
       <div className="page__header site-page__header">
@@ -322,6 +375,9 @@ export default function SiteAssetsPage() {
           <p className="page__subtle">Asset inventory for this site.</p>
         </div>
         <div className="dashboard-hero__actions">
+          <button type="button" className="btn" onClick={() => setManualFormOpen((v) => !v)}>
+            {manualFormOpen ? "Close Manual Asset Form" : "Add Asset Manually"}
+          </button>
           <Link href="/scan" className="btn-secondary shrink-0 max-md:w-full max-md:justify-center">
             Open Network Scan Console
           </Link>
@@ -330,6 +386,83 @@ export default function SiteAssetsPage() {
           </Link>
         </div>
       </div>
+
+      {manualFormOpen ? (
+        <section className="card" aria-labelledby="manual-asset-form-title">
+          <header className="form-card__head">
+            <p className="site-section-kicker">Inventory input</p>
+            <h2 id="manual-asset-form-title" className="site-section-title">
+              Add asset manually
+            </h2>
+            <p className="site-section-lead">
+              Enter asset details directly when a device is not coming from a network scan.
+            </p>
+          </header>
+          <form className="form-stack" onSubmit={saveManualAsset}>
+            <label className="form-field">
+              <span className="form-label">Name</span>
+              <input
+                className="form-input"
+                value={manualAsset.name}
+                onChange={(event) =>
+                  setManualAsset((current) => ({ ...current, name: event.target.value }))
+                }
+                required
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Type</span>
+              <input
+                className="form-input"
+                value={manualAsset.type}
+                onChange={(event) =>
+                  setManualAsset((current) => ({ ...current, type: event.target.value }))
+                }
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Serial Number</span>
+              <input
+                className="form-input"
+                value={manualAsset.serial_number}
+                onChange={(event) =>
+                  setManualAsset((current) => ({
+                    ...current,
+                    serial_number: event.target.value,
+                  }))
+                }
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Status</span>
+              <input
+                className="form-input"
+                value={manualAsset.status}
+                onChange={(event) =>
+                  setManualAsset((current) => ({ ...current, status: event.target.value }))
+                }
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Notes</span>
+              <textarea
+                className="form-input"
+                value={manualAsset.notes}
+                onChange={(event) =>
+                  setManualAsset((current) => ({ ...current, notes: event.target.value }))
+                }
+              />
+            </label>
+            {manualError ? <p className="error">{manualError}</p> : null}
+            {manualSuccess ? <p className="status">{manualSuccess}</p> : null}
+            <div className="form-actions">
+              <button className="btn" type="submit" disabled={manualSaving}>
+                {manualSaving ? "Saving…" : "Save Asset"}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section
         className="card site-tool-card"
@@ -433,14 +566,25 @@ export default function SiteAssetsPage() {
         aria-labelledby="site-inventory-title"
       >
         <header className="site-inventory-card__head">
-          <p className="site-section-kicker">Inventory</p>
-          <h2 id="site-inventory-title" className="site-section-title">
-            Site assets
-          </h2>
-          <p className="site-section-lead">
-            Search and filter the asset register for this site. Results update as you type; type
-            filters apply together with search.
-          </p>
+          <div className="site-inventory-card__head-row">
+            <div>
+              <p className="site-section-kicker">Inventory</p>
+              <h2 id="site-inventory-title" className="site-section-title">
+                Site assets
+              </h2>
+              <p className="site-section-lead">
+                Search and filter the asset register for this site. Results update as you type;
+                type filters apply together with search.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn site-inventory-card__export-btn"
+              onClick={exportAssetsCsv}
+            >
+              Export CSV
+            </button>
+          </div>
         </header>
 
         {isLoading ? (
@@ -448,7 +592,20 @@ export default function SiteAssetsPage() {
         ) : error ? (
           <p className="error">{error}</p>
         ) : assets.length === 0 ? (
-          <p className="status">No assets found for this site.</p>
+          <div className="empty-state">
+            <p className="status">No assets found for this site.</p>
+            <p className="site-section-lead">
+              Run a scan or add an asset manually to start this site's inventory.
+            </p>
+            <div className="form-actions">
+              <button type="button" className="btn" onClick={() => setManualFormOpen(true)}>
+                Add Asset Manually
+              </button>
+              <Link href="/scan" className="btn-secondary">
+                Open Network Scan
+              </Link>
+            </div>
+          </div>
         ) : (
           <>
             <div className="site-inventory-card__filters flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
@@ -482,13 +639,6 @@ export default function SiteAssetsPage() {
                   ))}
                 </select>
               </label>
-              <button
-                type="button"
-                className="btn-secondary w-full md:ml-auto md:w-auto"
-                onClick={exportAssetsCsv}
-              >
-                Export CSV
-              </button>
             </div>
 
             {filteredAssets.length === 0 ? (
@@ -509,7 +659,11 @@ export default function SiteAssetsPage() {
                 <tbody>
                   {filteredAssets.map((asset) => (
                     <tr key={asset.id}>
-                      <td>{asset.name}</td>
+                      <td>
+                        <Link href={`/assets/${asset.id}`} className="asset-link">
+                          {asset.name}
+                        </Link>
+                      </td>
                       <td>{asset.type}</td>
                       <td className="hidden md:table-cell">{asset.serial_number}</td>
                       <td>{asset.status}</td>
@@ -546,7 +700,17 @@ export default function SiteAssetsPage() {
         ) : scansError ? (
           <p className="error">{scansError}</p>
         ) : scans.length === 0 ? (
-          <p className="status">No scan history for this site yet.</p>
+          <div className="empty-state">
+            <p className="status">No scan history for this site yet.</p>
+            <p className="site-section-lead">
+              Run a network scan to start building a discovery history for this site.
+            </p>
+            <div className="form-actions">
+              <button type="button" className="btn-secondary" onClick={() => setShowScanner(true)}>
+                Open Site Scanner
+              </button>
+            </div>
+          </div>
         ) : (
           <table className="table w-full max-md:!min-w-0">
             <thead>

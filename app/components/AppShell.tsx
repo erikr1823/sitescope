@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
   { href: "/clients", label: "Clients" },
   { href: "/clients/new", label: "New Client" },
-  { href: "/assets", label: "Assets" },
+  { href: "/assets", label: "Inventory" },
   { href: "/scan", label: "Network Scan" },
 ] as const;
 

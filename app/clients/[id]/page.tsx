@@ -16,12 +16,27 @@ type Site = {
   city: string;
 };
 
+type SiteScan = {
+  id: number;
+  scanned_at: string | null;
+};
+
+function formatLastScanned(value: string | null | undefined): string {
+  if (!value) return "Never scanned";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Last scanned: unknown";
+  return `Last scanned: ${new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(d)}`;
+}
+
 export default function ClientSitesPage() {
   const params = useParams<{ id?: string | string[] }>();
   const rawClientId = params?.id;
   const clientId = Array.isArray(rawClientId) ? rawClientId[0] : rawClientId;
   const [clientName, setClientName] = useState("Client");
   const [sites, setSites] = useState<Site[]>([]);
+  const [lastScannedBySiteId, setLastScannedBySiteId] = useState<Record<number, string | null>>(
+    {}
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -49,6 +64,22 @@ export default function ClientSitesPage() {
         const currentClient = clients.find((client) => String(client.id) === clientId);
         setClientName(currentClient?.name ?? "Client");
         setSites(sitesData);
+
+        const scansPerSite = await Promise.all(
+          sitesData.map(async (site) => {
+            try {
+              const scansResponse = await fetch(
+                `/api/scans?site_id=${encodeURIComponent(String(site.id))}`
+              );
+              if (!scansResponse.ok) return [site.id, null] as const;
+              const scans = (await scansResponse.json()) as SiteScan[];
+              return [site.id, scans?.[0]?.scanned_at ?? null] as const;
+            } catch {
+              return [site.id, null] as const;
+            }
+          })
+        );
+        setLastScannedBySiteId(Object.fromEntries(scansPerSite));
       } catch {
         setError("Unable to load client sites right now.");
       } finally {
@@ -132,10 +163,13 @@ export default function ClientSitesPage() {
                   <h3 className="site-card__title">{site.name}</h3>
                   <p className="site-card__meta">{site.address}</p>
                   <p className="site-card__meta">{site.city}</p>
+                  <p className="site-card__badge">
+                    {formatLastScanned(lastScannedBySiteId[site.id])}
+                  </p>
                 </div>
 
                 <Link
-                  href={`/sites/${site.id}/assets`}
+                  href={`/sites/${site.id}`}
                   className="btn-secondary shrink-0"
                 >
                   View assets
