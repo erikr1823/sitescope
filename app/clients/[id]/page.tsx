@@ -60,43 +60,90 @@ export default function ClientSitesPage() {
   }, [clientId]);
 
   return (
-    <main className="page">
-      <div className="page__header">
-        <div>
-          <h1 className="page__title">{clientName} Sites</h1>
-          <p className="page__subtle">Site inventory and quick asset access for this client.</p>
+    <main className="page dashboard-page">
+      <header className="dashboard-hero">
+        <div className="dashboard-hero__row">
+          <div>
+            <h1 className="page__title">{clientName} — Sites</h1>
+            <p className="page__subtle">
+              Site inventory and quick asset access for this client.
+            </p>
+            <p className="dashboard-hero__hint">
+              Each site can hold its own asset register. Add a site for a new location, then open
+              assets from the site card.
+            </p>
+          </div>
+          <div className="dashboard-hero__actions">
+            {clientId ? (
+              <Link href={`/clients/${clientId}/sites/new`} className="btn">
+                New site
+              </Link>
+            ) : null}
+            <Link href="/clients" className="btn--ghost">
+              All clients
+            </Link>
+          </div>
         </div>
-        {clientId ? (
-          <Link href={`/clients/${clientId}/sites/new`} className="btn">
-            New Site
-          </Link>
-        ) : null}
-      </div>
+      </header>
 
       {isLoading ? (
-        <p className="status">Loading sites...</p>
+        <section className="card" aria-live="polite">
+          <p className="status">Loading sites…</p>
+        </section>
       ) : error ? (
-        <p className="error">{error}</p>
-      ) : sites.length === 0 ? (
         <section className="card">
-          <p className="status">No sites found for this client.</p>
+          <p className="error">{error}</p>
+        </section>
+      ) : sites.length === 0 ? (
+        <section className="card" aria-labelledby="client-sites-empty-title">
+          <header className="form-card__head">
+            <p className="site-section-kicker">Sites</p>
+            <h2 id="client-sites-empty-title" className="site-section-title">
+              No sites yet
+            </h2>
+            <p className="site-section-lead">
+              Create a site to represent a location or facility for this client, then attach assets
+              from the site view.
+            </p>
+          </header>
+          {clientId ? (
+            <Link href={`/clients/${clientId}/sites/new`} className="btn inline-flex max-md:w-full max-md:justify-center">
+              Add first site
+            </Link>
+          ) : null}
         </section>
       ) : (
-        <div className="site-list">
-          {sites.map((site) => (
-            <article key={site.id} className="card site-card">
-              <div>
-                <h2 className="site-card__title">{site.name}</h2>
-                <p className="site-card__meta">{site.address}</p>
-                <p className="site-card__meta">{site.city}</p>
-              </div>
+        <section aria-labelledby="client-sites-list-title">
+          <header className="form-card__head">
+            <p className="site-section-kicker">Locations</p>
+            <h2 id="client-sites-list-title" className="site-section-title">
+              Sites for {clientName}
+            </h2>
+            <p className="site-section-lead">
+              {sites.length} site{sites.length === 1 ? "" : "s"} — open assets or manage inventory
+              from each card.
+            </p>
+          </header>
 
-              <Link href={`/sites/${site.id}/assets`} className="btn-secondary">
-                View Assets
-              </Link>
-            </article>
-          ))}
-        </div>
+          <div className="site-list">
+            {sites.map((site) => (
+              <article key={site.id} className="card site-card">
+                <div className="min-w-0 flex-1">
+                  <h3 className="site-card__title">{site.name}</h3>
+                  <p className="site-card__meta">{site.address}</p>
+                  <p className="site-card__meta">{site.city}</p>
+                </div>
+
+                <Link
+                  href={`/sites/${site.id}/assets`}
+                  className="btn-secondary shrink-0"
+                >
+                  View assets
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
       )}
     </main>
   );

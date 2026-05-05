@@ -40,56 +40,77 @@ export default function AssetsPage() {
   }, []);
 
   return (
-    <main className="page">
-      <div className="page__header">
-        <div>
-          <h1 className="page__title">Assets</h1>
-          <p className="page__subtle">
-            Hardware inventory across all clients and sites.
-          </p>
+    <main className="page dashboard-page">
+      <header className="dashboard-hero">
+        <div className="dashboard-hero__row">
+          <div>
+            <h1 className="page__title">Assets</h1>
+            <p className="page__subtle">
+              Hardware inventory across all clients and sites.
+            </p>
+            <p className="dashboard-hero__hint">
+              Track lifecycle state, serial identifiers, and site placement from one searchable
+              table.
+            </p>
+          </div>
+          <div className="dashboard-hero__actions">
+            <Link href="/" className="btn--ghost">
+              Dashboard
+            </Link>
+            <button type="button" className="btn" disabled title="Coming soon">
+              New asset (soon)
+            </button>
+          </div>
         </div>
-
-        <div style={{ display: "flex", gap: "12px" }}>
-          <Link href="/" className="btn btn--ghost">
-            Dashboard
-          </Link>
-
-          <button type="button" className="btn" disabled title="Coming soon">
-            New Asset (Soon)
-          </button>
-        </div>
-      </div>
+      </header>
 
       {isLoading ? (
-        <p className="status">Loading assets...</p>
+        <section className="card">
+          <p className="status">Loading assets…</p>
+        </section>
       ) : error ? (
-        <p className="error">{error}</p>
+        <section className="card">
+          <p className="error">{error}</p>
+        </section>
       ) : assets.length === 0 ? (
         <section className="card">
-          <p className="status">No assets found yet.</p>
+          <p className="site-section-kicker">Inventory</p>
+          <h2 className="site-section-title">No assets found</h2>
+          <p className="status">
+            Add assets from a site page to populate this inventory view.
+          </p>
         </section>
       ) : (
-        <section className="card table-wrap" aria-label="Assets table">
-          <table className="table">
+        <section className="card table-wrap" aria-labelledby="assets-table-title">
+          <header className="form-card__head">
+            <p className="site-section-kicker">Inventory</p>
+            <h2 id="assets-table-title" className="site-section-title">
+              All assets
+            </h2>
+            <p className="site-section-lead">
+              {assets.length} asset{assets.length === 1 ? "" : "s"} across all clients and sites.
+            </p>
+          </header>
+          <table className="table w-full max-md:!min-w-0">
             <thead>
               <tr>
                 <th>Asset Name</th>
                 <th>Type</th>
-                <th>Serial Number</th>
+                <th className="hidden md:table-cell">Serial Number</th>
                 <th>Status</th>
-                <th>Client</th>
-                <th>Site</th>
+                <th className="hidden md:table-cell">Client</th>
+                <th className="hidden md:table-cell">Site</th>
               </tr>
             </thead>
             <tbody>
               {assets.map((asset) => (
                 <tr key={asset.id}>
-                  <td>{asset.name}</td>
+                  <td className="font-medium">{asset.name}</td>
                   <td>{asset.type}</td>
-                  <td>{asset.serial_number}</td>
+                  <td className="hidden md:table-cell">{asset.serial_number}</td>
                   <td>{asset.status}</td>
-                  <td>{asset.client_name}</td>
-                  <td>{asset.site_name}</td>
+                  <td className="hidden md:table-cell">{asset.client_name}</td>
+                  <td className="hidden md:table-cell">{asset.site_name}</td>
                 </tr>
               ))}
             </tbody>

@@ -60,7 +60,14 @@ export async function POST(request: Request) {
     const { client_id, site_id, name, type, serial_number, status, notes } =
       body ?? {};
 
-    if (!client_id || !site_id || !name || !type || !serial_number || !status) {
+    if (
+      client_id == null ||
+      site_id == null ||
+      !name ||
+      !type ||
+      serial_number == null ||
+      !status
+    ) {
       return NextResponse.json(
         {
           error:

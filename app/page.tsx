@@ -22,17 +22,23 @@ const summaryCards = [
   {
     key: "total_clients" as const,
     title: "Clients",
-    description: "Manage customer profiles, contacts, and account ownership.",
+    href: "/clients",
+    description: "Organizations you support — open records to manage contacts and ownership.",
+    cta: "View clients",
   },
   {
     key: "total_sites" as const,
     title: "Sites",
-    description: "Track active locations, operational details, and coverage.",
+    href: "/clients",
+    description: "Physical or logical locations tied to clients; drill in from any client record.",
+    cta: "Browse via clients",
   },
   {
     key: "total_assets" as const,
     title: "Assets",
-    description: "Review hardware inventory, lifecycle state, and deployment.",
+    href: "/assets",
+    description: "Hardware and devices across your estate — serials, status, and placement.",
+    cta: "Open asset inventory",
   },
 ];
 
@@ -66,58 +72,77 @@ export default function DashboardHomePage() {
   }, []);
 
   return (
-    <main className="page">
-      <section className="page__header">
-        <div>
-          <h1 className="page__title">Dashboard</h1>
-          <p className="page__subtle">Welcome to SiteScope IT asset management.</p>
+    <main className="page dashboard-page">
+      <header className="dashboard-hero">
+        <div className="dashboard-hero__row">
+          <div>
+            <h1 className="page__title">Dashboard</h1>
+            <p className="page__subtle">
+              Live counts and the latest additions across your IT footprint.
+            </p>
+            <p className="dashboard-hero__hint">
+              Use this view for a quick health check before diving into clients, sites, or the
+              full asset register. Numbers refresh each time you open the dashboard.
+            </p>
+          </div>
+          <div className="dashboard-hero__actions">
+            <Link href="/clients" className="btn">
+              Open clients
+            </Link>
+            <Link href="/assets" className="btn--ghost">
+              Asset inventory
+            </Link>
+          </div>
         </div>
-        <Link href="/clients" className="btn">
-          Open Clients
-        </Link>
-      </section>
+      </header>
 
       {isLoading ? (
-        <p className="status">Loading dashboard...</p>
+        <p className="status">Loading dashboard…</p>
       ) : error ? (
         <p className="error">{error}</p>
       ) : data ? (
         <>
-          <section className="dashboard-grid" aria-label="Summary cards">
+          <section className="dashboard-stat-grid" aria-label="Summary statistics">
             {summaryCards.map((card) => (
-              <article key={card.key} className="card dashboard-card">
-                <p className="dashboard-card__label">{card.title}</p>
-                <h2 className="dashboard-card__value">{data[card.key]}</h2>
-                <p className="dashboard-card__description">{card.description}</p>
-              </article>
+              <Link
+                key={card.key}
+                href={card.href}
+                className="dashboard-stat-card"
+              >
+                <span className="dashboard-stat-card__eyebrow">{card.title}</span>
+                <span className="dashboard-stat-card__value">{data[card.key]}</span>
+                <p className="dashboard-stat-card__hint">{card.description}</p>
+                <span className="dashboard-stat-card__cta">{card.cta} →</span>
+              </Link>
             ))}
           </section>
 
-          <section className="card table-wrap" aria-label="Recent assets">
-            <h2
-              style={{
-                margin: "0 0 12px 0",
-                fontSize: "1.05rem",
-                fontWeight: 600,
-              }}
-            >
-              Recent Assets
-            </h2>
-            <p className="page__subtle" style={{ margin: "0 0 16px 0" }}>
-              Last 10 assets added across all sites.
-            </p>
+          <section className="card table-wrap dashboard-section" aria-labelledby="recent-assets-heading">
+            <div className="dashboard-section__header">
+              <p className="dashboard-section__kicker">Activity</p>
+              <h2 id="recent-assets-heading" className="dashboard-section__title">
+                Recent assets
+              </h2>
+              <p className="dashboard-section__lead">
+                The ten most recently created assets, across all clients and sites. Use this list
+                to spot new deployments without running a full inventory report.
+              </p>
+            </div>
 
             {data.recent_assets.length === 0 ? (
-              <p className="status">No assets yet.</p>
+              <p className="status">
+                No assets yet. Add hardware from a site page or your asset workflow to see them
+                here.
+              </p>
             ) : (
-              <table className="table">
+              <table className="table w-full max-md:!min-w-0">
                 <thead>
                   <tr>
                     <th>Name</th>
                     <th>Type</th>
-                    <th>Serial Number</th>
-                    <th>Site</th>
-                    <th>Client</th>
+                    <th className="hidden md:table-cell">Serial Number</th>
+                    <th className="hidden md:table-cell">Site</th>
+                    <th className="hidden md:table-cell">Client</th>
                     <th>Created</th>
                   </tr>
                 </thead>
@@ -126,10 +151,12 @@ export default function DashboardHomePage() {
                     <tr key={asset.id}>
                       <td>{asset.name}</td>
                       <td>{asset.type}</td>
-                      <td>{asset.serial_number}</td>
-                      <td>{asset.site_name}</td>
-                      <td>{asset.client_name}</td>
-                      <td>{formatCreatedAt(asset.created_at)}</td>
+                      <td className="hidden md:table-cell">{asset.serial_number}</td>
+                      <td className="hidden md:table-cell">{asset.site_name}</td>
+                      <td className="hidden md:table-cell">{asset.client_name}</td>
+                      <td className="whitespace-nowrap text-sm md:text-base">
+                        {formatCreatedAt(asset.created_at)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

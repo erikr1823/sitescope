@@ -150,10 +150,10 @@ export default function AssetDetailPage() {
 
   const rowStyle: CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "minmax(140px, 200px) 1fr",
+    gridTemplateColumns: "minmax(130px, 190px) 1fr",
     gap: "8px 24px",
     alignItems: "center",
-    padding: "10px 0",
+    padding: "12px 0",
     borderBottom: "1px solid var(--border)",
   };
 
@@ -169,16 +169,20 @@ export default function AssetDetailPage() {
   const valueStyle: CSSProperties = { margin: 0, wordBreak: "break-word" };
 
   return (
-    <main className="page">
+    <main className="page dashboard-page">
       <div className="page__header">
         <div>
           <h1 className="page__title">{asset?.name ?? "Asset"}</h1>
           <p className="page__subtle">Hardware record and lifecycle details.</p>
+          <p className="dashboard-hero__hint" style={{ marginTop: "8px" }}>
+            Review core metadata, update fields in edit mode, and keep notes for operational
+            context.
+          </p>
         </div>
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "flex-end" }}>
-          <Link href="/sites/2" className="btn-secondary">
-            Back
+          <Link href="/assets" className="btn--ghost">
+            Back to assets
           </Link>
 
           {!isLoading && asset && !isEditing ? (
@@ -206,14 +210,29 @@ export default function AssetDetailPage() {
       </div>
 
       {isLoading ? (
-        <p className="status">Loading asset...</p>
+        <section className="card">
+          <p className="status">Loading asset…</p>
+        </section>
       ) : error && !asset ? (
-        <p className="error">{error}</p>
+        <section className="card">
+          <p className="error">{error}</p>
+        </section>
       ) : asset ? (
         <>
           {error ? <p className="error">{error}</p> : null}
 
-          <section className="card" aria-label="Asset details">
+          <section className="card" aria-labelledby="asset-record-title">
+            <header className="form-card__head">
+              <p className="site-section-kicker">Record view</p>
+              <h2 id="asset-record-title" className="site-section-title">
+                Asset details
+              </h2>
+              <p className="site-section-lead">
+                {isEditing
+                  ? "Edit mode is active. Update fields and save when ready."
+                  : "Read-only view of this asset. Enter edit mode to update values."}
+              </p>
+            </header>
             <div style={{ display: "grid", gap: 0 }}>
               <div style={rowStyle}>
                 <p style={labelStyle}>Name</p>
@@ -294,12 +313,7 @@ export default function AssetDetailPage() {
                 <div style={{ width: "100%" }}>
                   {isEditing ? (
                     <textarea
-                      style={{
-                        ...inputStyle,
-                        minHeight: "100px",
-                        resize: "vertical",
-                        fontFamily: "inherit",
-                      }}
+                      style={{ ...inputStyle, minHeight: "110px", resize: "vertical", fontFamily: "inherit" }}
                       value={draft.notes ?? ""}
                       onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
                       aria-label="Notes"
