@@ -869,6 +869,59 @@ a {
   border-bottom: 1px solid rgba(36, 53, 79, 0.5);
 }
 
+/* Network scan page (app/scan/page.tsx) */
+.scan-page {
+  gap: clamp(1.25rem, 2.8vw, 1.9rem);
+}
+
+.scan-console {
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 10px 38px rgba(2, 6, 23, 0.34);
+  background:
+    radial-gradient(880px 280px at 0% -40%, rgba(14, 165, 233, 0.1), transparent 70%),
+    linear-gradient(165deg, rgba(31, 51, 82, 0.44) 0%, rgba(10, 15, 24, 0.92) 100%);
+}
+
+.scan-console__header {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(36, 53, 79, 0.6);
+}
+
+.scan-form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.scan-form-grid__actions {
+  display: flex;
+  align-items: end;
+}
+
+.scan-console__scan-btn {
+  width: 100%;
+  min-height: 44px;
+}
+
+.scan-console__context {
+  margin: 12px 0 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+@media (min-width: 900px) {
+  .scan-form-grid {
+    grid-template-columns: minmax(260px, 1fr) minmax(220px, 1fr) auto;
+    align-items: end;
+  }
+
+  .scan-console__scan-btn {
+    width: auto;
+    min-width: 168px;
+  }
+}
+
 @media (max-width: 900px) {
   .app-shell {
     grid-template-columns: 1fr;

@@ -87,10 +87,13 @@ export default function DashboardHomePage() {
           </div>
           <div className="dashboard-hero__actions">
             <Link href="/clients" className="btn">
-              Open clients
+              Open Clients
             </Link>
             <Link href="/assets" className="btn--ghost">
-              Asset inventory
+              View Assets
+            </Link>
+            <Link href="/scan" className="btn-secondary">
+              Run Network Scan
             </Link>
           </div>
         </div>

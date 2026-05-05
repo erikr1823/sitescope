@@ -321,9 +321,14 @@ export default function SiteAssetsPage() {
           <h1 className="page__title">Site Assets</h1>
           <p className="page__subtle">Asset inventory for this site.</p>
         </div>
-        <Link href="/clients" className="btn btn--ghost shrink-0 max-md:w-full max-md:justify-center">
-          Back to clients
-        </Link>
+        <div className="dashboard-hero__actions">
+          <Link href="/scan" className="btn-secondary shrink-0 max-md:w-full max-md:justify-center">
+            Open Network Scan Console
+          </Link>
+          <Link href="/clients" className="btn btn--ghost shrink-0 max-md:w-full max-md:justify-center">
+            Back to clients
+          </Link>
+        </div>
       </div>
 
       <section

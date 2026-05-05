@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/clients", label: "Clients" },
   { href: "/clients/new", label: "New Client" },
   { href: "/assets", label: "Assets" },
+  { href: "/scan", label: "Network Scan" },
 ] as const;
 
 function isNavActive(href: string, pathname: string): boolean {
@@ -24,13 +25,8 @@ function isNavActive(href: string, pathname: string): boolean {
     return pathname.startsWith("/clients") || pathname.startsWith("/sites/");
   }
   if (href === "/assets") return pathname.startsWith("/assets");
+  if (href === "/scan") return pathname === "/scan" || pathname.startsWith("/scan/");
   return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function linkClassName(href: string, pathname: string) {
-  return isNavActive(href, pathname)
-    ? "sidebar__link sidebar__link--active"
-    : "sidebar__link";
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
@@ -84,16 +80,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
             className="mobile-nav"
             aria-label="Main navigation"
           >
-            {NAV_ITEMS.map((item) => (
+            {NAV_ITEMS.map((item) => {
+              const active = isNavActive(item.href, pathname);
+              return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={linkClassName(item.href, pathname)}
+                className={active ? "sidebar__link sidebar__link--active" : "sidebar__link"}
+                aria-current={active ? "page" : undefined}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 {item.label}
               </Link>
-            ))}
+              );
+            })}
           </nav>
         </>
       ) : null}
@@ -104,15 +104,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="sidebar__nav" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={linkClassName(item.href, pathname)}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const active = isNavActive(item.href, pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={active ? "sidebar__link sidebar__link--active" : "sidebar__link"}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <p className="sidebar__footer">
