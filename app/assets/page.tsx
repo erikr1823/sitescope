@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type Asset = {
@@ -47,9 +48,16 @@ export default function AssetsPage() {
             Hardware inventory across all clients and sites.
           </p>
         </div>
-        <button type="button" className="btn" disabled title="Coming soon">
-          New Asset (Soon)
-        </button>
+
+        <div style={{ display: "flex", gap: "12px" }}>
+          <Link href="/" className="btn btn--ghost">
+            Dashboard
+          </Link>
+
+          <button type="button" className="btn" disabled title="Coming soon">
+            New Asset (Soon)
+          </button>
+        </div>
       </div>
 
       {isLoading ? (

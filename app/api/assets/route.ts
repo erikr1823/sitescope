@@ -1,7 +1,37 @@
 import { NextResponse } from "next/server";
 import { sql } from "../../../lib/db";
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+
+  if (id) {
+    try {
+      const rows = await sql(
+        `SELECT
+           assets.*,
+           clients.name AS client_name,
+           sites.name AS site_name
+         FROM assets
+         JOIN clients ON clients.id = assets.client_id
+         JOIN sites ON sites.id = assets.site_id
+         WHERE assets.id = $1`,
+        [id]
+      );
+
+      if (rows.length === 0) {
+        return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+      }
+
+      return NextResponse.json(rows[0]);
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to load asset" },
+        { status: 500 }
+      );
+    }
+  }
+
   try {
     const assets = await sql(
       `SELECT
