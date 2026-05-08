@@ -320,12 +320,17 @@ export default function NetworkScanPage() {
     <main className="page scan-page">
       <header className="page__header">
         <div>
-          <h1 className="page__title">Network Scan</h1>
+          <h1 className="page__title">Network Scan Console</h1>
           <p className="page__subtle">
-            Discover devices on a subnet and save them into SiteScope inventory.
+            Scan a subnet, review discovered hosts, and save devices into inventory.
           </p>
         </div>
       </header>
+
+      <section className="card scan-lab-hint" aria-label="Lab subnet hint">
+        <p className="site-section-kicker">Hint</p>
+        <p className="scan-lab-hint__text">Lab subnet: 192.168.10.0/24</p>
+      </section>
 
       <section className="card scan-console" aria-labelledby="scan-console-title">
         <header className="scan-console__header">
@@ -339,7 +344,12 @@ export default function NetworkScanPage() {
         </header>
 
         {sitesLoading ? (
-          <p className="status">Loading sites…</p>
+          <div className="scan-skeleton-card" aria-label="Loading scan targets">
+            <div className="skeleton-line skeleton-line--title" />
+            <div className="skeleton-line" />
+            <div className="skeleton-line" />
+            <div className="skeleton-line skeleton-line--button" />
+          </div>
         ) : sitesError ? (
           <p className="error">{sitesError}</p>
         ) : sites.length === 0 ? (
@@ -420,7 +430,14 @@ export default function NetworkScanPage() {
                 {selectedClientName ? ` (${selectedClientName})` : ""}
                 {assetsLoading ? " · refreshing assets…" : ""}
               </p>
-            ) : null}
+            ) : (
+              <div className="empty-state">
+                <p className="status">No site selected.</p>
+                <p className="site-section-lead">
+                  Select a client and site to run discovery and save devices into inventory.
+                </p>
+              </div>
+            )}
 
             {scanError ? <p className="error">{scanError}</p> : null}
             {saveError ? <p className="error">{saveError}</p> : null}

@@ -9,6 +9,7 @@
         "start": "next start"
     },
     "dependencies": {
+        "@clerk/nextjs": "^7.3.2",
         "next": "latest",
         "pg": "^8.20.0",
         "react": "latest",

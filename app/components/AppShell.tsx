@@ -1,5 +1,6 @@
 "use client";
 
+import { Show, UserButton } from "@clerk/nextjs";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
@@ -32,6 +33,7 @@ function isNavActive(href: string, pathname: string): boolean {
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isAuthPage = pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up");
 
   useEffect(() => {
     setMobileMenuOpen(false);
@@ -45,6 +47,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       document.body.style.overflow = previous;
     };
   }, [mobileMenuOpen]);
+
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div className="app-shell">
@@ -132,10 +138,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
               Clients, locations, and asset lifecycle
             </p>
           </div>
+        <div className="top-header__actions">
           <div className="top-header__brand-chip" aria-hidden="true">
             <SiteScopeLogo compact />
             <span className="top-header__brand-chip-label">SiteScope</span>
           </div>
+          <Show when="signed-in">
+            <div className="top-header__user">
+              <UserButton />
+            </div>
+          </Show>
+          <Show when="signed-out">
+            <Link href="/sign-in" className="btn-secondary">
+              Sign in
+            </Link>
+          </Show>
+        </div>
         </header>
         <div className="workspace__content">{children}</div>
       </div>

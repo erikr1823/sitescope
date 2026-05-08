@@ -63,8 +63,14 @@ export default function ClientsPage() {
       </header>
 
       {isLoading ? (
-        <section className="card" aria-live="polite">
-          <p className="status">Loading clients…</p>
+        <section className="card" aria-live="polite" aria-label="Loading clients">
+          <div className="skeleton-line skeleton-line--title" />
+          <div className="skeleton-line" />
+          <div className="skeleton-table">
+            <div className="skeleton-table__row" />
+            <div className="skeleton-table__row" />
+            <div className="skeleton-table__row" />
+          </div>
         </section>
       ) : error ? (
         <section className="card">
@@ -92,7 +98,7 @@ export default function ClientsPage() {
               </p>
               <div className="form-actions">
                 <Link href="/clients/new" className="btn">
-                  Create first client
+                  Add your first client
                 </Link>
               </div>
             </div>

@@ -314,6 +314,17 @@ a {
   color: #cbd5e1;
 }
 
+.top-header__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-header__user {
+  display: inline-flex;
+  align-items: center;
+}
+
 .top-header__title {
   font-weight: 650;
   font-size: 0.95rem;
@@ -796,6 +807,38 @@ a {
   max-width: 48rem;
 }
 
+.dashboard-quick-actions__grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dashboard-quick-actions__item {
+  display: grid;
+  gap: 6px;
+  text-decoration: none;
+  border-radius: 12px;
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  background: rgba(59, 130, 246, 0.08);
+  padding: 14px;
+}
+
+.dashboard-quick-actions__item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.13);
+}
+
+.dashboard-quick-actions__title {
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #dbeafe;
+}
+
+.dashboard-quick-actions__meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
 /* Site assets page (app/sites/[id]/page.tsx) */
 .site-page {
   gap: clamp(1.25rem, 2.5vw, 1.75rem);
@@ -956,6 +999,72 @@ a {
   margin: 12px 0 0;
   font-size: 0.86rem;
   color: var(--text-muted);
+}
+
+.scan-lab-hint {
+  border-color: rgba(14, 165, 233, 0.3);
+  background: linear-gradient(165deg, rgba(8, 47, 73, 0.5), rgba(15, 23, 42, 0.85));
+}
+
+.scan-lab-hint__text {
+  margin: 0;
+  color: #bae6fd;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.scan-skeleton-card {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.14),
+    rgba(148, 163, 184, 0.24),
+    rgba(148, 163, 184, 0.14)
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-line--title {
+  width: 45%;
+  height: 14px;
+}
+
+.skeleton-line--metric {
+  width: 28%;
+  height: 28px;
+}
+
+.skeleton-line--button {
+  width: 34%;
+  height: 34px;
+}
+
+.skeleton-table {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.skeleton-table__row {
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
 }
 
 @media (min-width: 900px) {

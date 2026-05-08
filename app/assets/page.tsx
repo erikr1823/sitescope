@@ -57,16 +57,38 @@ export default function AssetsPage() {
             <Link href="/" className="btn--ghost">
               Dashboard
             </Link>
-            <button type="button" className="btn" disabled title="Coming soon">
-              New asset (soon)
-            </button>
+            <Link href="/clients" className="btn">
+              Add Asset Manually
+            </Link>
           </div>
         </div>
       </header>
 
+      <section className="card">
+        <p className="site-section-kicker">Add inventory</p>
+        <h2 className="site-section-title">Manual inventory entry</h2>
+        <p className="site-section-lead">
+          Add assets from a site page or Network Scan.
+        </p>
+        <div className="form-actions">
+          <Link href="/clients" className="btn-secondary">
+            Open Site Pages
+          </Link>
+          <Link href="/scan" className="btn">
+            Run Network Scan
+          </Link>
+        </div>
+      </section>
+
       {isLoading ? (
-        <section className="card">
-          <p className="status">Loading assets…</p>
+        <section className="card" aria-label="Loading inventory">
+          <div className="skeleton-line skeleton-line--title" />
+          <div className="skeleton-line" />
+          <div className="skeleton-table">
+            <div className="skeleton-table__row" />
+            <div className="skeleton-table__row" />
+            <div className="skeleton-table__row" />
+          </div>
         </section>
       ) : error ? (
         <section className="card">
@@ -77,7 +99,7 @@ export default function AssetsPage() {
           <p className="site-section-kicker">Inventory</p>
           <h2 className="site-section-title">No inventory items found</h2>
           <p className="status">
-            Add assets from a site page to populate this inventory view.
+            Start by adding an asset or running a network scan.
           </p>
           <div className="form-actions">
             <Link href="/clients" className="btn">
@@ -93,7 +115,7 @@ export default function AssetsPage() {
           <header className="form-card__head">
             <p className="site-section-kicker">Inventory</p>
             <h2 id="assets-table-title" className="site-section-title">
-              All assets
+              All inventory
             </h2>
             <p className="site-section-lead">
               {assets.length} asset{assets.length === 1 ? "" : "s"} across all clients and sites.

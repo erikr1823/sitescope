@@ -35,10 +35,10 @@ const summaryCards = [
   },
   {
     key: "total_assets" as const,
-    title: "Assets",
+    title: "Inventory",
     href: "/assets",
     description: "Hardware and devices across your estate — serials, status, and placement.",
-    cta: "Open asset inventory",
+    cta: "Open inventory",
   },
 ];
 
@@ -99,8 +99,51 @@ export default function DashboardHomePage() {
         </div>
       </header>
 
+      <section className="dashboard-quick-actions card" aria-label="Quick actions">
+        <p className="site-section-kicker">Command center</p>
+        <h2 className="site-section-title">Quick actions</h2>
+        <div className="dashboard-quick-actions__grid">
+          <Link href="/scan" className="dashboard-quick-actions__item">
+            <span className="dashboard-quick-actions__title">Run Network Scan</span>
+            <span className="dashboard-quick-actions__meta">
+              Launch the scan console and discover devices fast.
+            </span>
+          </Link>
+          <Link href="/assets" className="dashboard-quick-actions__item">
+            <span className="dashboard-quick-actions__title">Open Inventory</span>
+            <span className="dashboard-quick-actions__meta">
+              Review all inventory items and drill into details.
+            </span>
+          </Link>
+        </div>
+      </section>
+
       {isLoading ? (
-        <p className="status">Loading dashboard…</p>
+        <>
+          <section className="dashboard-stat-grid" aria-label="Loading dashboard metrics">
+            <div className="card">
+              <div className="skeleton-line skeleton-line--title" />
+              <div className="skeleton-line skeleton-line--metric" />
+            </div>
+            <div className="card">
+              <div className="skeleton-line skeleton-line--title" />
+              <div className="skeleton-line skeleton-line--metric" />
+            </div>
+            <div className="card">
+              <div className="skeleton-line skeleton-line--title" />
+              <div className="skeleton-line skeleton-line--metric" />
+            </div>
+          </section>
+          <section className="card" aria-label="Loading dashboard activity">
+            <div className="skeleton-line skeleton-line--title" />
+            <div className="skeleton-line" />
+            <div className="skeleton-table">
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+            </div>
+          </section>
+        </>
       ) : error ? (
         <p className="error">{error}</p>
       ) : data ? (
@@ -124,7 +167,7 @@ export default function DashboardHomePage() {
             <div className="dashboard-section__header">
               <p className="dashboard-section__kicker">Activity</p>
               <h2 id="recent-assets-heading" className="dashboard-section__title">
-                Recent assets
+                Recent inventory
               </h2>
               <p className="dashboard-section__lead">
                 The ten most recently created assets, across all clients and sites. Use this list
