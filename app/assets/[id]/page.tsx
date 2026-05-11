@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import type { CSSProperties } from "react";
+import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 
 type AssetDetail = {
@@ -18,6 +18,16 @@ type AssetDetail = {
 };
 
 type DraftFields = Pick<AssetDetail, "name" | "type" | "serial_number" | "status" | "notes">;
+type NoteType = "general" | "repair" | "config" | "warning";
+
+type AssetNote = {
+  id: number;
+  asset_id: number;
+  note: string;
+  note_type: NoteType;
+  created_by: string;
+  created_at: string | null;
+};
 
 const inputStyle: CSSProperties = {
   width: "100%",
@@ -61,6 +71,12 @@ export default function AssetDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [serviceNotes, setServiceNotes] = useState<AssetNote[]>([]);
+  const [isNotesLoading, setIsNotesLoading] = useState(true);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [notesError, setNotesError] = useState("");
+  const [newNote, setNewNote] = useState("");
+  const [newNoteType, setNewNoteType] = useState<NoteType>("general");
   const [error, setError] = useState("");
 
   const loadAsset = useCallback(async () => {
@@ -97,9 +113,37 @@ export default function AssetDetailPage() {
     }
   }, [assetId]);
 
+  const loadNotes = useCallback(async () => {
+    if (!assetId) {
+      setNotesError("Asset ID is missing.");
+      setIsNotesLoading(false);
+      return;
+    }
+
+    setIsNotesLoading(true);
+    setNotesError("");
+
+    try {
+      const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/notes`);
+
+      if (!response.ok) {
+        throw new Error("Failed to load notes");
+      }
+
+      const data = (await response.json()) as AssetNote[];
+      setServiceNotes(data);
+    } catch {
+      setNotesError("Unable to load service history right now.");
+      setServiceNotes([]);
+    } finally {
+      setIsNotesLoading(false);
+    }
+  }, [assetId]);
+
   useEffect(() => {
     loadAsset();
-  }, [loadAsset]);
+    loadNotes();
+  }, [loadAsset, loadNotes]);
 
   function handleEdit() {
     if (!asset) return;
@@ -145,6 +189,44 @@ export default function AssetDetailPage() {
       setError("Unable to save changes. Please try again.");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleSubmitNote(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assetId) return;
+
+    const trimmedNote = newNote.trim();
+    if (!trimmedNote) {
+      setNotesError("Please enter a note before submitting.");
+      return;
+    }
+
+    setIsSubmittingNote(true);
+    setNotesError("");
+
+    try {
+      const response = await fetch(`/api/assets/${encodeURIComponent(assetId)}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          note: trimmedNote,
+          note_type: newNoteType,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create note");
+      }
+
+      const created = (await response.json()) as AssetNote;
+      setServiceNotes((current) => [created, ...current]);
+      setNewNote("");
+      setNewNoteType("general");
+    } catch {
+      setNotesError("Unable to add service note. Please try again.");
+    } finally {
+      setIsSubmittingNote(false);
     }
   }
 
@@ -331,6 +413,109 @@ export default function AssetDetailPage() {
                 </p>
               </div>
             </div>
+          </section>
+
+          <section className="card" aria-labelledby="service-history-title">
+            <header className="form-card__head">
+              <p className="site-section-kicker">Maintenance log</p>
+              <h2 id="service-history-title" className="site-section-title">
+                Service History
+              </h2>
+              <p className="site-section-lead">
+                Track maintenance, repairs, and configuration changes for this asset.
+              </p>
+            </header>
+
+            <form onSubmit={handleSubmitNote} style={{ display: "grid", gap: "12px", marginBottom: "16px" }}>
+              <div style={{ display: "grid", gap: "8px" }}>
+                <label htmlFor="service-note" style={labelStyle}>
+                  Note
+                </label>
+                <textarea
+                  id="service-note"
+                  style={{ ...inputStyle, minHeight: "110px", resize: "vertical", fontFamily: "inherit" }}
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Add maintenance details, changes made, or warnings..."
+                  disabled={isSubmittingNote}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "minmax(140px, 220px) auto",
+                  gap: "10px",
+                  alignItems: "end",
+                }}
+              >
+                <div style={{ display: "grid", gap: "8px" }}>
+                  <label htmlFor="service-note-type" style={labelStyle}>
+                    Type
+                  </label>
+                  <select
+                    id="service-note-type"
+                    style={inputStyle}
+                    value={newNoteType}
+                    onChange={(e) => setNewNoteType(e.target.value as NoteType)}
+                    disabled={isSubmittingNote}
+                  >
+                    <option value="general">general</option>
+                    <option value="repair">repair</option>
+                    <option value="config">config</option>
+                    <option value="warning">warning</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn"
+                  disabled={isSubmittingNote}
+                  style={{ width: "fit-content" }}
+                >
+                  {isSubmittingNote ? "Adding…" : "Add note"}
+                </button>
+              </div>
+            </form>
+
+            {notesError ? <p className="error">{notesError}</p> : null}
+
+            {isNotesLoading ? (
+              <p className="status">Loading service history…</p>
+            ) : serviceNotes.length === 0 ? (
+              <p className="status">No service notes yet.</p>
+            ) : (
+              <div style={{ display: "grid", gap: "10px" }}>
+                {serviceNotes.map((noteItem) => (
+                  <article
+                    key={noteItem.id}
+                    style={{
+                      border: "1px solid var(--border)",
+                      borderRadius: "12px",
+                      padding: "12px",
+                      background: "var(--bg-elevated)",
+                      display: "grid",
+                      gap: "8px",
+                    }}
+                  >
+                    <p style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{noteItem.note}</p>
+                    <div
+                      style={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: "8px 14px",
+                        color: "var(--text-muted)",
+                        fontSize: "0.82rem",
+                      }}
+                    >
+                      <span>Type: {noteItem.note_type}</span>
+                      <span>By: {noteItem.created_by || "Unknown user"}</span>
+                      <span>{formatTimestamp(noteItem.created_at)}</span>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         </>
       ) : null}
