@@ -11,6 +11,7 @@ type Asset = {
   status: string;
   client_name: string;
   site_name: string;
+  notes?: string;
 };
 
 export default function AssetsPage() {
@@ -39,6 +40,49 @@ export default function AssetsPage() {
     loadAssets();
   }, []);
 
+  function exportAssetsCsv() {
+    const escapeCsvCell = (value: unknown): string => {
+      const raw = value == null ? "" : String(value);
+      return `"${raw.replace(/"/g, '""')}"`;
+    };
+
+    const headerRow = [
+      "Name",
+      "Type",
+      "Serial Number",
+      "Status",
+      "Client",
+      "Site",
+      "Notes",
+    ]
+      .map((h) => escapeCsvCell(h))
+      .join(",");
+
+    const dataRows = assets.map((asset) =>
+      [
+        escapeCsvCell(asset.name),
+        escapeCsvCell(asset.type),
+        escapeCsvCell(asset.serial_number),
+        escapeCsvCell(asset.status),
+        escapeCsvCell(asset.client_name),
+        escapeCsvCell(asset.site_name),
+        escapeCsvCell(asset.notes),
+      ].join(",")
+    );
+
+    const csv = [headerRow, ...dataRows].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "sitescope-inventory.csv";
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="page dashboard-page">
       <header className="dashboard-hero">
@@ -57,6 +101,14 @@ export default function AssetsPage() {
             <Link href="/" className="btn--ghost">
               Dashboard
             </Link>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={exportAssetsCsv}
+              disabled={assets.length === 0}
+            >
+              Export CSV
+            </button>
             <Link href="/clients" className="btn">
               Add Asset Manually
             </Link>
