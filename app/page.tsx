@@ -76,7 +76,7 @@ export default function DashboardHomePage() {
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
-            <h1 className="page__title">Dashboard</h1>
+            <h1 className="page__title">SiteScope Dashboard — Branch Preview Test</h1>
             <p className="page__subtle">
               Live counts and the latest additions across your IT footprint.
             </p>
