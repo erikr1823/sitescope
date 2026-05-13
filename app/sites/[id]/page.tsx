@@ -35,6 +35,38 @@ type SiteScan = {
   scanned_by: string | null;
 };
 
+type SiteNetworkSnapshot = {
+  site_id?: number;
+  isp?: string | null;
+  corp_ssid?: string | null;
+  guest_ssid?: string | null;
+  ap_total?: number | null;
+  ap_online?: number | null;
+  device_count?: number | null;
+  last_speed_down?: number | null;
+  last_speed_up?: number | null;
+  updated_at?: string | null;
+};
+
+type NetSnapshotEditKey =
+  | "isp"
+  | "corp_ssid"
+  | "guest_ssid"
+  | "aps"
+  | "device_count"
+  | "speed";
+
+type SiteFollowup = {
+  id: number;
+  site_id: number;
+  status: string;
+  item_text: string;
+  is_complete: boolean;
+  created_at: string | null;
+};
+
+type FollowupUiStatus = "green" | "yellow" | "red";
+
 const TYPE_FILTER_OPTIONS = [
   "All",
   "Server",
@@ -57,6 +89,106 @@ const filterToolbarControlStyle: CSSProperties = {
   color: "var(--text)",
   fontSize: "0.9rem",
 };
+
+const netSnapshotRowStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "minmax(120px, 170px) 1fr",
+  gap: "10px 18px",
+  alignItems: "center",
+  padding: "12px 0",
+  borderBottom: "1px solid var(--border)",
+};
+
+const netSnapshotLabelStyle: CSSProperties = {
+  margin: 0,
+  color: "var(--text-muted)",
+  fontSize: "0.82rem",
+  fontWeight: 600,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
+
+const netSnapshotInputStyle: CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: "10px",
+  border: "1px solid var(--border)",
+  background: "var(--bg-elevated)",
+  color: "var(--text)",
+  fontSize: "0.92rem",
+};
+
+const netSnapshotValueButtonStyle: CSSProperties = {
+  margin: 0,
+  padding: "8px 10px",
+  borderRadius: "10px",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  background: "rgba(15, 23, 42, 0.35)",
+  color: "var(--text)",
+  textAlign: "left",
+  width: "100%",
+  cursor: "pointer",
+  fontSize: "0.95rem",
+  wordBreak: "break-word",
+  lineHeight: 1.45,
+};
+
+function displayNetSnapshotText(value: string | null | undefined): string {
+  if (value == null || String(value).trim() === "") return "Not set";
+  return String(value);
+}
+
+function displayNetSnapshotMbps(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const n = Number(value);
+  const rounded = Math.round(n * 100) / 100;
+  return String(rounded);
+}
+
+function displayNetSnapshotApRatio(
+  online: number | null | undefined,
+  total: number | null | undefined
+): string {
+  const o =
+    online != null && Number.isFinite(Number(online)) ? String(Number(online)) : "—";
+  const t = total != null && Number.isFinite(Number(total)) ? String(Number(total)) : "—";
+  if (o === "—" && t === "—") return "Not set";
+  return `${o} / ${t}`;
+}
+
+function displayNetSnapshotDeviceLine(snapshot: SiteNetworkSnapshot | null): string {
+  const n = snapshot?.device_count;
+  if (n == null || !Number.isFinite(Number(n))) return "Not set";
+  return String(Number(n));
+}
+
+function displayNetSnapshotSpeedLine(snapshot: SiteNetworkSnapshot | null): string {
+  if (!snapshot) return "Not set";
+  const ds = displayNetSnapshotMbps(snapshot.last_speed_down);
+  const us = displayNetSnapshotMbps(snapshot.last_speed_up);
+  if (ds === "—" && us === "—") return "Not set";
+  return `${ds} / ${us} Mbps`;
+}
+
+function followUpStatusDotColor(status: string): string {
+  const s = status.trim().toLowerCase();
+  if (s === "green") return "#22c55e";
+  if (s === "yellow") return "#eab308";
+  if (s === "red") return "#ef4444";
+  return "#64748b";
+}
+
+function sortFollowUpsList(list: SiteFollowup[]): SiteFollowup[] {
+  return [...list].sort((a, b) => {
+    if (a.is_complete !== b.is_complete) {
+      return a.is_complete ? 1 : -1;
+    }
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (tb !== ta) return tb - ta;
+    return b.id - a.id;
+  });
+}
 
 function assetMatchesSearch(asset: Asset, query: string): boolean {
   const trimmed = query.trim();
@@ -126,6 +258,29 @@ export default function SiteAssetsPage() {
     status: "Active",
     notes: "",
   });
+
+  const [netSnapshot, setNetSnapshot] = useState<SiteNetworkSnapshot | null>(null);
+  const [netSnapshotLoading, setNetSnapshotLoading] = useState(true);
+  const [netSnapshotError, setNetSnapshotError] = useState("");
+  const [netSnapshotSaving, setNetSnapshotSaving] = useState(false);
+  const [netSnapshotFieldError, setNetSnapshotFieldError] = useState("");
+  const [netSnapshotEditing, setNetSnapshotEditing] = useState<NetSnapshotEditKey | null>(null);
+  const [netSnapshotDraftText, setNetSnapshotDraftText] = useState("");
+  const [netSnapshotDraftApOn, setNetSnapshotDraftApOn] = useState("");
+  const [netSnapshotDraftApTot, setNetSnapshotDraftApTot] = useState("");
+  const [netSnapshotDraftDevice, setNetSnapshotDraftDevice] = useState("");
+  const [netSnapshotDraftDown, setNetSnapshotDraftDown] = useState("");
+  const [netSnapshotDraftUp, setNetSnapshotDraftUp] = useState("");
+
+  const [followUps, setFollowUps] = useState<SiteFollowup[]>([]);
+  const [followUpsLoading, setFollowUpsLoading] = useState(true);
+  const [followUpsError, setFollowUpsError] = useState("");
+  const [followUpAddError, setFollowUpAddError] = useState("");
+  const [followUpAddSaving, setFollowUpAddSaving] = useState(false);
+  const [followUpToggleError, setFollowUpToggleError] = useState("");
+  const [newFollowUpText, setNewFollowUpText] = useState("");
+  const [newFollowUpStatus, setNewFollowUpStatus] =
+    useState<FollowupUiStatus>("yellow");
 
   const filteredAssets = useMemo(
     () =>
@@ -216,6 +371,280 @@ export default function SiteAssetsPage() {
   useEffect(() => {
     loadScans();
   }, [loadScans]);
+
+  const loadNetSnapshot = useCallback(async () => {
+    if (!siteId) {
+      setNetSnapshotLoading(false);
+      return;
+    }
+
+    setNetSnapshotLoading(true);
+    setNetSnapshotError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/snapshot`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load network snapshot");
+      }
+
+      const data = (await response.json()) as { snapshot: SiteNetworkSnapshot | null };
+      setNetSnapshot(data.snapshot ?? null);
+    } catch {
+      setNetSnapshotError("Unable to load network snapshot right now.");
+      setNetSnapshot(null);
+    } finally {
+      setNetSnapshotLoading(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => {
+    loadNetSnapshot();
+  }, [loadNetSnapshot]);
+
+  const loadFollowUps = useCallback(async () => {
+    if (!siteId) {
+      setFollowUpsLoading(false);
+      return;
+    }
+
+    setFollowUpsLoading(true);
+    setFollowUpsError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/followups`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load follow-ups");
+      }
+
+      const data = (await response.json()) as { followups?: SiteFollowup[] };
+      const rows = Array.isArray(data.followups) ? data.followups : [];
+      setFollowUps(sortFollowUpsList(rows));
+    } catch {
+      setFollowUpsError("Unable to load follow-up items right now.");
+      setFollowUps([]);
+    } finally {
+      setFollowUpsLoading(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => {
+    loadFollowUps();
+  }, [loadFollowUps]);
+
+  async function patchNetSnapshot(patch: Record<string, unknown>): Promise<boolean> {
+    if (!siteId) return false;
+
+    setNetSnapshotSaving(true);
+    setNetSnapshotFieldError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/snapshot`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        }
+      );
+
+      const data = (await response.json()) as {
+        snapshot?: SiteNetworkSnapshot;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setNetSnapshotFieldError(data.error ?? "Unable to save network snapshot.");
+        return false;
+      }
+
+      if (data.snapshot) {
+        setNetSnapshot(data.snapshot);
+      }
+      return true;
+    } catch {
+      setNetSnapshotFieldError("Unable to save network snapshot.");
+      return false;
+    } finally {
+      setNetSnapshotSaving(false);
+    }
+  }
+
+  function beginNetSnapshotEdit(key: NetSnapshotEditKey) {
+    if (netSnapshotSaving) return;
+    setNetSnapshotFieldError("");
+    setNetSnapshotEditing(key);
+
+    if (key === "isp") {
+      setNetSnapshotDraftText(netSnapshot?.isp?.trim() ?? "");
+    } else if (key === "corp_ssid") {
+      setNetSnapshotDraftText(netSnapshot?.corp_ssid?.trim() ?? "");
+    } else if (key === "guest_ssid") {
+      setNetSnapshotDraftText(netSnapshot?.guest_ssid?.trim() ?? "");
+    } else if (key === "aps") {
+      setNetSnapshotDraftApOn(
+        netSnapshot?.ap_online != null && Number.isFinite(Number(netSnapshot.ap_online))
+          ? String(Number(netSnapshot.ap_online))
+          : ""
+      );
+      setNetSnapshotDraftApTot(
+        netSnapshot?.ap_total != null && Number.isFinite(Number(netSnapshot.ap_total))
+          ? String(Number(netSnapshot.ap_total))
+          : ""
+      );
+    } else if (key === "device_count") {
+      setNetSnapshotDraftDevice(
+        netSnapshot?.device_count != null &&
+          Number.isFinite(Number(netSnapshot.device_count))
+          ? String(Number(netSnapshot.device_count))
+          : ""
+      );
+    } else if (key === "speed") {
+      setNetSnapshotDraftDown(
+        netSnapshot?.last_speed_down != null &&
+          Number.isFinite(Number(netSnapshot.last_speed_down))
+          ? String(Number(netSnapshot.last_speed_down))
+          : ""
+      );
+      setNetSnapshotDraftUp(
+        netSnapshot?.last_speed_up != null &&
+          Number.isFinite(Number(netSnapshot.last_speed_up))
+          ? String(Number(netSnapshot.last_speed_up))
+          : ""
+      );
+    }
+  }
+
+  function cancelNetSnapshotEdit() {
+    setNetSnapshotEditing(null);
+    setNetSnapshotFieldError("");
+  }
+
+  async function commitNetSnapshotText(
+    field: "isp" | "corp_ssid" | "guest_ssid",
+    draft: string
+  ) {
+    const trimmed = draft.trim();
+    const next = trimmed === "" ? null : trimmed;
+    const prev = netSnapshot?.[field];
+    const prevNorm =
+      prev == null || String(prev).trim() === "" ? null : String(prev).trim();
+    if (prevNorm === next) {
+      cancelNetSnapshotEdit();
+      return;
+    }
+    const ok = await patchNetSnapshot({ [field]: next });
+    if (ok) cancelNetSnapshotEdit();
+  }
+
+  async function commitNetSnapshotAps() {
+    const parseIntOrNull = (raw: string): number | null | "invalid" => {
+      const t = raw.trim();
+      if (t === "") return null;
+      const n = Number(t);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) return "invalid";
+      return n;
+    };
+
+    const on = parseIntOrNull(netSnapshotDraftApOn);
+    const tot = parseIntOrNull(netSnapshotDraftApTot);
+    if (on === "invalid" || tot === "invalid") {
+      setNetSnapshotFieldError("AP counts must be whole numbers or empty.");
+      return;
+    }
+
+    const prevOn = netSnapshot?.ap_online;
+    const prevTot = netSnapshot?.ap_total;
+    const sameOn =
+      (prevOn == null && on == null) ||
+      (prevOn != null && on != null && Number(prevOn) === on);
+    const sameTot =
+      (prevTot == null && tot == null) ||
+      (prevTot != null && tot != null && Number(prevTot) === tot);
+
+    if (sameOn && sameTot) {
+      cancelNetSnapshotEdit();
+      return;
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (!sameOn) patch.ap_online = on;
+    if (!sameTot) patch.ap_total = tot;
+    const ok = await patchNetSnapshot(patch);
+    if (ok) cancelNetSnapshotEdit();
+  }
+
+  async function commitNetSnapshotDeviceCount() {
+    const trimmed = netSnapshotDraftDevice.trim();
+    let next: number | null;
+    if (trimmed === "") {
+      next = null;
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        setNetSnapshotFieldError("Devices online must be a whole number or empty.");
+        return;
+      }
+      next = n;
+    }
+
+    const prev = netSnapshot?.device_count;
+    const prevNorm =
+      prev == null || !Number.isFinite(Number(prev)) ? null : Number(prev);
+    if (prevNorm === next) {
+      cancelNetSnapshotEdit();
+      return;
+    }
+
+    const ok = await patchNetSnapshot({ device_count: next });
+    if (ok) cancelNetSnapshotEdit();
+  }
+
+  async function commitNetSnapshotSpeed() {
+    const parseNumOrNull = (raw: string): number | null | "invalid" => {
+      const t = raw.trim();
+      if (t === "") return null;
+      const n = Number(t);
+      if (!Number.isFinite(n)) return "invalid";
+      return n;
+    };
+
+    const down = parseNumOrNull(netSnapshotDraftDown);
+    const up = parseNumOrNull(netSnapshotDraftUp);
+    if (down === "invalid" || up === "invalid") {
+      setNetSnapshotFieldError("Speed values must be numbers or empty.");
+      return;
+    }
+
+    const prevDown = netSnapshot?.last_speed_down;
+    const prevUp = netSnapshot?.last_speed_up;
+    const prevDN =
+      prevDown == null || !Number.isFinite(Number(prevDown)) ? null : Number(prevDown);
+    const prevUN =
+      prevUp == null || !Number.isFinite(Number(prevUp)) ? null : Number(prevUp);
+
+    const sameDown =
+      (prevDN == null && down == null) ||
+      (prevDN != null && down != null && prevDN === down);
+    const sameUp =
+      (prevUN == null && up == null) || (prevUN != null && up != null && prevUN === up);
+
+    if (sameDown && sameUp) {
+      cancelNetSnapshotEdit();
+      return;
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (!sameDown) patch.last_speed_down = down;
+    if (!sameUp) patch.last_speed_up = up;
+    const ok = await patchNetSnapshot(patch);
+    if (ok) cancelNetSnapshotEdit();
+  }
 
   async function runMockScan() {
     if (!siteId || isScanning) return;
@@ -367,6 +796,99 @@ export default function SiteAssetsPage() {
     }
   }
 
+  async function addFollowUp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!siteId || followUpAddSaving) return;
+
+    const text = newFollowUpText.trim();
+    if (!text) {
+      setFollowUpAddError("Enter follow-up text.");
+      return;
+    }
+
+    setFollowUpAddSaving(true);
+    setFollowUpAddError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/followups`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            item_text: text,
+            status: newFollowUpStatus,
+          }),
+        }
+      );
+
+      const data = (await response.json()) as {
+        followup?: SiteFollowup;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setFollowUpAddError(data.error ?? "Could not add follow-up item.");
+        return;
+      }
+
+      if (data.followup) {
+        setFollowUps((list) => sortFollowUpsList([data.followup as SiteFollowup, ...list]));
+      }
+      setNewFollowUpText("");
+      setNewFollowUpStatus("yellow");
+    } catch {
+      setFollowUpAddError("Could not add follow-up item.");
+    } finally {
+      setFollowUpAddSaving(false);
+    }
+  }
+
+  async function toggleFollowUpComplete(item: SiteFollowup, nextComplete: boolean) {
+    if (!siteId || item.is_complete === nextComplete) return;
+
+    setFollowUpToggleError("");
+    const previous = item;
+    setFollowUps((list) =>
+      list.map((f) => (f.id === item.id ? { ...f, is_complete: nextComplete } : f))
+    );
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/followups/${item.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_complete: nextComplete }),
+        }
+      );
+
+      const data = (await response.json()) as {
+        followup?: SiteFollowup;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Update failed");
+      }
+
+      if (data.followup) {
+        setFollowUps((list) =>
+          sortFollowUpsList(
+            list.map((f) => (f.id === item.id ? (data.followup as SiteFollowup) : f))
+          )
+        );
+      }
+    } catch (err) {
+      setFollowUps((list) =>
+        list.map((f) => (f.id === item.id ? previous : f))
+      );
+      setFollowUpToggleError(
+        err instanceof Error ? err.message : "Could not update follow-up item."
+      );
+    }
+  }
+
   return (
     <main className="page site-page">
       <div className="page__header site-page__header">
@@ -386,6 +908,480 @@ export default function SiteAssetsPage() {
           </Link>
         </div>
       </div>
+
+      <section className="card" aria-labelledby="network-snapshot-title">
+        <header className="form-card__head">
+          <p className="site-section-kicker">Network posture</p>
+          <h2 id="network-snapshot-title" className="site-section-title">
+            Network Snapshot
+          </h2>
+          <p className="site-section-lead">
+            Quick reference for connectivity, Wi‑Fi, access points, and last speed test results.
+            Click any value to edit; press Enter or click away to save.
+          </p>
+        </header>
+
+        {!siteId ? (
+          <p className="status">Site ID is missing.</p>
+        ) : netSnapshotLoading ? (
+          <p className="status">Loading network snapshot…</p>
+        ) : netSnapshotError ? (
+          <p className="error">{netSnapshotError}</p>
+        ) : (
+          <>
+            {netSnapshotFieldError ? <p className="error">{netSnapshotFieldError}</p> : null}
+
+            <div style={{ display: "grid", gap: 0 }}>
+              <div style={netSnapshotRowStyle}>
+                <p style={netSnapshotLabelStyle}>ISP</p>
+                {netSnapshotEditing === "isp" ? (
+                  <input
+                    style={netSnapshotInputStyle}
+                    value={netSnapshotDraftText}
+                    onChange={(e) => setNetSnapshotDraftText(e.target.value)}
+                    onBlur={(e) => void commitNetSnapshotText("isp", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelNetSnapshotEdit();
+                      }
+                    }}
+                    disabled={netSnapshotSaving}
+                    autoFocus
+                    aria-label="ISP"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("isp")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotText(netSnapshot?.isp)}
+                  </button>
+                )}
+              </div>
+
+              <div style={netSnapshotRowStyle}>
+                <p style={netSnapshotLabelStyle}>Corp SSID</p>
+                {netSnapshotEditing === "corp_ssid" ? (
+                  <input
+                    style={netSnapshotInputStyle}
+                    value={netSnapshotDraftText}
+                    onChange={(e) => setNetSnapshotDraftText(e.target.value)}
+                    onBlur={(e) => void commitNetSnapshotText("corp_ssid", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelNetSnapshotEdit();
+                      }
+                    }}
+                    disabled={netSnapshotSaving}
+                    autoFocus
+                    aria-label="Corporate SSID"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("corp_ssid")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotText(netSnapshot?.corp_ssid)}
+                  </button>
+                )}
+              </div>
+
+              <div style={netSnapshotRowStyle}>
+                <p style={netSnapshotLabelStyle}>Guest SSID</p>
+                {netSnapshotEditing === "guest_ssid" ? (
+                  <input
+                    style={netSnapshotInputStyle}
+                    value={netSnapshotDraftText}
+                    onChange={(e) => setNetSnapshotDraftText(e.target.value)}
+                    onBlur={(e) => void commitNetSnapshotText("guest_ssid", e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelNetSnapshotEdit();
+                      }
+                    }}
+                    disabled={netSnapshotSaving}
+                    autoFocus
+                    aria-label="Guest SSID"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("guest_ssid")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotText(netSnapshot?.guest_ssid)}
+                  </button>
+                )}
+              </div>
+
+              <div style={netSnapshotRowStyle}>
+                <p style={netSnapshotLabelStyle}>APs online</p>
+                {netSnapshotEditing === "aps" ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                        void commitNetSnapshotAps();
+                      }
+                    }}
+                  >
+                    <input
+                      style={{ ...netSnapshotInputStyle, maxWidth: "120px" }}
+                      inputMode="numeric"
+                      value={netSnapshotDraftApOn}
+                      onChange={(e) => setNetSnapshotDraftApOn(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void commitNetSnapshotAps();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelNetSnapshotEdit();
+                        }
+                      }}
+                      disabled={netSnapshotSaving}
+                      autoFocus
+                      aria-label="Access points online"
+                    />
+                    <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>/</span>
+                    <input
+                      style={{ ...netSnapshotInputStyle, maxWidth: "120px" }}
+                      inputMode="numeric"
+                      value={netSnapshotDraftApTot}
+                      onChange={(e) => setNetSnapshotDraftApTot(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void commitNetSnapshotAps();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelNetSnapshotEdit();
+                        }
+                      }}
+                      disabled={netSnapshotSaving}
+                      aria-label="Access points total"
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("aps")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotApRatio(netSnapshot?.ap_online, netSnapshot?.ap_total)}
+                  </button>
+                )}
+              </div>
+
+              <div style={netSnapshotRowStyle}>
+                <p style={netSnapshotLabelStyle}>Devices online</p>
+                {netSnapshotEditing === "device_count" ? (
+                  <input
+                    style={{ ...netSnapshotInputStyle, maxWidth: "160px" }}
+                    inputMode="numeric"
+                    value={netSnapshotDraftDevice}
+                    onChange={(e) => setNetSnapshotDraftDevice(e.target.value)}
+                    onBlur={() => void commitNetSnapshotDeviceCount()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        cancelNetSnapshotEdit();
+                      }
+                    }}
+                    disabled={netSnapshotSaving}
+                    autoFocus
+                    aria-label="Devices online count"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("device_count")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotDeviceLine(netSnapshot)}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ ...netSnapshotRowStyle, borderBottom: "none", paddingBottom: 0 }}>
+                <p style={netSnapshotLabelStyle}>Last speed test</p>
+                {netSnapshotEditing === "speed" ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      gap: "10px",
+                    }}
+                    onBlur={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                        void commitNetSnapshotSpeed();
+                      }
+                    }}
+                  >
+                    <input
+                      style={{ ...netSnapshotInputStyle, maxWidth: "130px" }}
+                      inputMode="decimal"
+                      value={netSnapshotDraftDown}
+                      onChange={(e) => setNetSnapshotDraftDown(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void commitNetSnapshotSpeed();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelNetSnapshotEdit();
+                        }
+                      }}
+                      disabled={netSnapshotSaving}
+                      autoFocus
+                      aria-label="Download Mbps"
+                    />
+                    <span style={{ color: "var(--text-muted)", fontWeight: 600 }}>/</span>
+                    <input
+                      style={{ ...netSnapshotInputStyle, maxWidth: "130px" }}
+                      inputMode="decimal"
+                      value={netSnapshotDraftUp}
+                      onChange={(e) => setNetSnapshotDraftUp(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void commitNetSnapshotSpeed();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelNetSnapshotEdit();
+                        }
+                      }}
+                      disabled={netSnapshotSaving}
+                      aria-label="Upload Mbps"
+                    />
+                    <span style={{ color: "var(--text-muted)", fontSize: "0.85rem" }}>Mbps</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    style={netSnapshotValueButtonStyle}
+                    onClick={() => beginNetSnapshotEdit("speed")}
+                    disabled={netSnapshotSaving}
+                  >
+                    {displayNetSnapshotSpeedLine(netSnapshot)}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {netSnapshot?.updated_at ? (
+              <p
+                className="site-section-lead"
+                style={{ marginTop: "14px", marginBottom: 0, fontSize: "0.82rem" }}
+              >
+                Last updated {formatScannedAt(netSnapshot.updated_at)}
+              </p>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="follow-up-items-title">
+        <header className="form-card__head">
+          <p className="site-section-kicker">Action items</p>
+          <h2 id="follow-up-items-title" className="site-section-title">
+            Follow-Up Items
+          </h2>
+          <p className="site-section-lead">
+            Track open work for this site. Status colors reflect urgency; mark items complete when
+            resolved.
+          </p>
+        </header>
+
+        {!siteId ? (
+          <p className="status">Site ID is missing.</p>
+        ) : followUpsLoading ? (
+          <p className="status">Loading follow-up items…</p>
+        ) : followUpsError ? (
+          <p className="error">{followUpsError}</p>
+        ) : (
+          <>
+            {followUpToggleError ? (
+              <p className="error" style={{ marginBottom: "12px" }}>
+                {followUpToggleError}
+              </p>
+            ) : null}
+
+            <form
+              className="form-stack"
+              style={{ marginBottom: "18px" }}
+              onSubmit={addFollowUp}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  alignItems: "flex-end",
+                }}
+              >
+                <label className="form-field" style={{ margin: 0, flex: "1 1 220px" }}>
+                  <span className="form-label">New item</span>
+                  <input
+                    className="form-input"
+                    value={newFollowUpText}
+                    onChange={(e) => setNewFollowUpText(e.target.value)}
+                    placeholder="Describe the follow-up…"
+                    disabled={followUpAddSaving}
+                    aria-label="Follow-up text"
+                  />
+                </label>
+                <label className="form-field" style={{ margin: 0, flex: "0 1 140px" }}>
+                  <span className="form-label">Status</span>
+                  <select
+                    className="form-input"
+                    style={filterToolbarControlStyle}
+                    value={newFollowUpStatus}
+                    onChange={(e) =>
+                      setNewFollowUpStatus(e.target.value as FollowupUiStatus)
+                    }
+                    disabled={followUpAddSaving}
+                    aria-label="Follow-up status"
+                  >
+                    <option value="green">Green</option>
+                    <option value="yellow">Yellow</option>
+                    <option value="red">Red</option>
+                  </select>
+                </label>
+                <div className="form-actions" style={{ margin: 0 }}>
+                  <button type="submit" className="btn" disabled={followUpAddSaving}>
+                    {followUpAddSaving ? "Adding…" : "Add"}
+                  </button>
+                </div>
+              </div>
+              {followUpAddError ? <p className="error">{followUpAddError}</p> : null}
+            </form>
+
+            {followUps.length === 0 ? (
+              <div className="empty-state">
+                <p className="status">No follow-up items yet.</p>
+                <p className="site-section-lead">
+                  Add your first item above to track work for this site.
+                </p>
+              </div>
+            ) : (
+              <ul
+                style={{
+                  listStyle: "none",
+                  margin: 0,
+                  padding: 0,
+                  display: "grid",
+                  gap: "10px",
+                }}
+              >
+                {followUps.map((item) => {
+                  const complete = Boolean(item.is_complete);
+                  return (
+                    <li
+                      key={item.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: "12px",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
+                        border: "1px solid var(--border)",
+                        background: "var(--bg-elevated)",
+                      }}
+                    >
+                      <span
+                        title={item.status}
+                        aria-hidden
+                        style={{
+                          width: "10px",
+                          height: "10px",
+                          borderRadius: "999px",
+                          marginTop: "6px",
+                          flexShrink: 0,
+                          background: followUpStatusDotColor(item.status),
+                          boxShadow: `0 0 0 2px rgba(15, 23, 42, 0.6)`,
+                        }}
+                      />
+                      <p
+                        style={{
+                          margin: 0,
+                          flex: 1,
+                          minWidth: 0,
+                          lineHeight: 1.45,
+                          fontSize: "0.95rem",
+                          color: complete ? "var(--text-muted)" : "var(--text)",
+                          textDecoration: complete ? "line-through" : "none",
+                          opacity: complete ? 0.85 : 1,
+                        }}
+                      >
+                        {item.item_text}
+                      </p>
+                      <label
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          flexShrink: 0,
+                          cursor: "pointer",
+                          fontSize: "0.82rem",
+                          color: "var(--text-muted)",
+                          userSelect: "none",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={complete}
+                          onChange={(e) =>
+                            void toggleFollowUpComplete(item, e.target.checked)
+                          }
+                          aria-label={`Mark complete: ${item.item_text.slice(0, 80)}`}
+                        />
+                        <span className="hidden sm:inline">Done</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </>
+        )}
+      </section>
 
       {manualFormOpen ? (
         <section className="card" aria-labelledby="manual-asset-form-title">
