@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type Asset = {
   id: number;
@@ -65,6 +65,17 @@ type SiteFollowup = {
   created_at: string | null;
 };
 
+type SitePhoto = {
+  id: number;
+  site_id: number;
+  url: string;
+  filename: string;
+  asset_id: number | null;
+  uploaded_at: string | null;
+  asset_name?: string | null;
+  previewUrl?: string;
+};
+
 type FollowupUiStatus = "green" | "yellow" | "red";
 
 const TYPE_FILTER_OPTIONS = [
@@ -80,6 +91,8 @@ const TYPE_FILTER_OPTIONS = [
   "Phone",
   "Other",
 ] as const;
+
+const ASSET_TYPE_OPTIONS = TYPE_FILTER_OPTIONS.filter((t) => t !== "All");
 
 const filterToolbarControlStyle: CSSProperties = {
   padding: "10px 12px",
@@ -282,6 +295,25 @@ export default function SiteAssetsPage() {
   const [newFollowUpStatus, setNewFollowUpStatus] =
     useState<FollowupUiStatus>("yellow");
 
+  const [sitePhotos, setSitePhotos] = useState<SitePhoto[]>([]);
+  const [sitePhotosLoading, setSitePhotosLoading] = useState(true);
+  const [sitePhotosError, setSitePhotosError] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
+  const [photoUploadError, setPhotoUploadError] = useState("");
+  const [photoDragActive, setPhotoDragActive] = useState(false);
+  const photoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [photoAssetPanel, setPhotoAssetPanel] = useState<SitePhoto | null>(null);
+  const [photoAssetName, setPhotoAssetName] = useState("");
+  const [photoAssetType, setPhotoAssetType] = useState("Other");
+  const [photoAssetLocation, setPhotoAssetLocation] = useState("");
+  const [photoAssetSaving, setPhotoAssetSaving] = useState(false);
+  const [photoAssetError, setPhotoAssetError] = useState("");
+
   const filteredAssets = useMemo(
     () =>
       assets.filter(
@@ -436,6 +468,38 @@ export default function SiteAssetsPage() {
   useEffect(() => {
     loadFollowUps();
   }, [loadFollowUps]);
+
+  const loadSitePhotos = useCallback(async () => {
+    if (!siteId) {
+      setSitePhotosLoading(false);
+      return;
+    }
+
+    setSitePhotosLoading(true);
+    setSitePhotosError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/photos`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load photos");
+      }
+
+      const data = (await response.json()) as { photos?: SitePhoto[] };
+      setSitePhotos(Array.isArray(data.photos) ? data.photos : []);
+    } catch {
+      setSitePhotosError("Unable to load site photos right now.");
+      setSitePhotos([]);
+    } finally {
+      setSitePhotosLoading(false);
+    }
+  }, [siteId]);
+
+  useEffect(() => {
+    loadSitePhotos();
+  }, [loadSitePhotos]);
 
   async function patchNetSnapshot(patch: Record<string, unknown>): Promise<boolean> {
     if (!siteId) return false;
@@ -754,6 +818,130 @@ export default function SiteAssetsPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function uploadSitePhotoFiles(fileList: FileList | File[]) {
+    if (!siteId || photoUploading) return;
+
+    const files = Array.from(fileList).filter((f) =>
+      (f.type || "").toLowerCase().startsWith("image/")
+    );
+
+    if (files.length === 0) {
+      setPhotoUploadError("Choose one or more image files.");
+      return;
+    }
+
+    setPhotoUploadError("");
+    setPhotoUploading(true);
+    setPhotoUploadProgress({ current: 0, total: files.length });
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData();
+        formData.append("files", files[i]);
+
+        const response = await fetch(
+          `/api/sites/${encodeURIComponent(siteId)}/photos`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        const data = (await response.json()) as {
+          photos?: SitePhoto[];
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(data.error ?? "Upload failed");
+        }
+
+        const created = data.photos?.[0];
+        if (created) {
+          setSitePhotos((prev) => [created, ...prev]);
+        }
+
+        setPhotoUploadProgress({ current: i + 1, total: files.length });
+      }
+    } catch (err) {
+      setPhotoUploadError(
+        err instanceof Error ? err.message : "Unable to upload photos."
+      );
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(null);
+    }
+  }
+
+  function openPhotoAssetPanel(photo: SitePhoto) {
+    if (photo.asset_id != null) return;
+    setPhotoAssetError("");
+    setPhotoAssetPanel(photo);
+    const base = photo.filename.replace(/\.[^/.]+$/, "").trim();
+    setPhotoAssetName(base || photo.filename);
+    setPhotoAssetType("Other");
+    setPhotoAssetLocation("");
+  }
+
+  function closePhotoAssetPanel() {
+    setPhotoAssetPanel(null);
+    setPhotoAssetError("");
+    setPhotoAssetSaving(false);
+  }
+
+  async function submitPhotoAssetFromPhoto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!siteId || !photoAssetPanel || photoAssetSaving) return;
+
+    const name = photoAssetName.trim();
+    if (!name) {
+      setPhotoAssetError("Asset name is required.");
+      return;
+    }
+
+    setPhotoAssetSaving(true);
+    setPhotoAssetError("");
+
+    try {
+      const response = await fetch(
+        `/api/sites/${encodeURIComponent(siteId)}/photos/${photoAssetPanel.id}/create-asset`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            type: photoAssetType,
+            location: photoAssetLocation.trim(),
+          }),
+        }
+      );
+
+      const data = (await response.json()) as {
+        photo?: SitePhoto;
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Could not create asset");
+      }
+
+      if (data.photo) {
+        setSitePhotos((list) =>
+          list.map((p) => (p.id === photoAssetPanel.id ? (data.photo as SitePhoto) : p))
+        );
+      }
+
+      closePhotoAssetPanel();
+      await loadAssets();
+    } catch (err) {
+      setPhotoAssetError(
+        err instanceof Error ? err.message : "Could not create asset."
+      );
+    } finally {
+      setPhotoAssetSaving(false);
+    }
+  }
+
   async function saveManualAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!siteId || !manualAsset.name.trim() || manualSaving) return;
@@ -890,6 +1078,7 @@ export default function SiteAssetsPage() {
   }
 
   return (
+    <>
     <main className="page site-page">
       <div className="page__header site-page__header">
         <div>
@@ -1383,6 +1572,210 @@ export default function SiteAssetsPage() {
         )}
       </section>
 
+      <section className="card" aria-labelledby="site-photos-title">
+        <header className="form-card__head">
+          <p className="site-section-kicker">Visual inventory</p>
+          <h2 id="site-photos-title" className="site-section-title">
+            Site photos
+          </h2>
+          <p className="site-section-lead">
+            Upload images to R2, then create inventory assets from photos when you are ready to
+            document hardware.
+          </p>
+        </header>
+
+        {!siteId ? (
+          <p className="status">Site ID is missing.</p>
+        ) : sitePhotosLoading ? (
+          <p className="status">Loading photos…</p>
+        ) : sitePhotosError ? (
+          <p className="error">{sitePhotosError}</p>
+        ) : (
+          <>
+            {photoUploadError ? <p className="error">{photoUploadError}</p> : null}
+
+            <input
+              ref={photoFileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              aria-hidden
+              tabIndex={-1}
+              onChange={(e) => {
+                const list = e.target.files;
+                if (list && list.length > 0) {
+                  void uploadSitePhotoFiles(list);
+                }
+                e.target.value = "";
+              }}
+            />
+
+            <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  photoFileInputRef.current?.click();
+                }
+              }}
+              onClick={() => photoFileInputRef.current?.click()}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setPhotoDragActive(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setPhotoDragActive(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setPhotoDragActive(false);
+                if (e.dataTransfer.files?.length) {
+                  void uploadSitePhotoFiles(e.dataTransfer.files);
+                }
+              }}
+              style={{
+                borderRadius: "14px",
+                border: `2px dashed ${
+                  photoDragActive ? "rgba(59, 130, 246, 0.65)" : "rgba(148, 163, 184, 0.35)"
+                }`,
+                background: photoDragActive
+                  ? "rgba(59, 130, 246, 0.08)"
+                  : "rgba(15, 23, 42, 0.45)",
+                padding: "22px 18px",
+                textAlign: "center",
+                cursor: photoUploading ? "wait" : "pointer",
+                marginBottom: "18px",
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 600, color: "var(--text)" }}>
+                {photoUploading
+                  ? photoUploadProgress
+                    ? `Uploading ${photoUploadProgress.current} of ${photoUploadProgress.total}…`
+                    : "Uploading…"
+                  : "Drop images here or click to browse"}
+              </p>
+              <p
+                className="site-section-lead"
+                style={{ marginTop: "8px", marginBottom: 0, fontSize: "0.86rem" }}
+              >
+                PNG, JPEG, WebP, GIF — multiple files supported.
+              </p>
+            </div>
+
+            {sitePhotos.length === 0 ? (
+              <div className="empty-state">
+                <p className="status">No photos for this site yet.</p>
+                <p className="site-section-lead">
+                  Upload site or rack photos, then link them to new assets when you identify
+                  hardware.
+                </p>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                {sitePhotos.map((photo) => {
+                  const linked = photo.asset_id != null;
+                  const previewSrc =
+                    photo.previewUrl ??
+                    `/api/sites/${encodeURIComponent(String(siteId))}/photos/${photo.id}/image`;
+                  return (
+                    <article
+                      key={photo.id}
+                      style={{
+                        borderRadius: "12px",
+                        border: "1px solid var(--border)",
+                        background: "var(--bg-elevated)",
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      <div
+                        style={{
+                          aspectRatio: "4 / 3",
+                          background: "rgba(15, 23, 42, 0.6)",
+                          position: "relative",
+                        }}
+                      >
+                        <img
+                          src={previewSrc}
+                          alt=""
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                            display: "block",
+                            opacity: linked ? 0.88 : 1,
+                          }}
+                          loading="lazy"
+                        />
+                      </div>
+                      <div style={{ padding: "12px 12px 14px", display: "grid", gap: "10px" }}>
+                        <p
+                          style={{
+                            margin: 0,
+                            fontSize: "0.82rem",
+                            color: "var(--text-muted)",
+                            wordBreak: "break-word",
+                            lineHeight: 1.35,
+                          }}
+                          title={photo.filename}
+                        >
+                          {photo.filename}
+                        </p>
+                        {linked ? (
+                          <>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "0.9rem",
+                                fontWeight: 600,
+                                color: "var(--text)",
+                              }}
+                            >
+                              {photo.asset_name ?? `Asset #${photo.asset_id}`}
+                            </p>
+                            <Link
+                              href={`/assets/${photo.asset_id}`}
+                              className="btn-secondary inline-flex w-full justify-center"
+                            >
+                              View Asset
+                            </Link>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => openPhotoAssetPanel(photo)}
+                            disabled={photoUploading}
+                          >
+                            Create Asset from this Photo
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
       {manualFormOpen ? (
         <section className="card" aria-labelledby="manual-asset-form-title">
           <header className="form-card__head">
@@ -1733,5 +2126,123 @@ export default function SiteAssetsPage() {
         )}
       </section>
     </main>
+
+    {photoAssetPanel ? (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 60,
+          display: "flex",
+          justifyContent: "flex-end",
+          pointerEvents: "auto",
+        }}
+      >
+        <button
+          type="button"
+          aria-label="Close asset form"
+          onClick={closePhotoAssetPanel}
+          style={{
+            position: "absolute",
+            inset: 0,
+            border: "none",
+            margin: 0,
+            padding: 0,
+            background: "rgba(2, 6, 23, 0.55)",
+            cursor: "pointer",
+          }}
+        />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="photo-asset-panel-title"
+          style={{
+            position: "relative",
+            width: "min(420px, 100vw)",
+            maxWidth: "100%",
+            height: "100%",
+            background: "var(--bg-elevated)",
+            borderLeft: "1px solid var(--border)",
+            boxShadow: "-12px 0 40px rgba(0,0,0,0.35)",
+            padding: "22px 20px 24px",
+            overflowY: "auto",
+            zIndex: 1,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px" }}>
+            <div>
+              <p className="site-section-kicker" style={{ marginBottom: "4px" }}>
+                New asset
+              </p>
+              <h2
+                id="photo-asset-panel-title"
+                className="site-section-title"
+                style={{ fontSize: "1.1rem" }}
+              >
+                From photo
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="btn btn--ghost"
+              onClick={closePhotoAssetPanel}
+              style={{ flexShrink: 0 }}
+            >
+              Close
+            </button>
+          </div>
+          <p className="site-section-lead" style={{ marginTop: "10px" }}>
+            Site is set from this page. Add a label and type to create the inventory record and link
+            this image.
+          </p>
+
+          <form className="form-stack" style={{ marginTop: "18px" }} onSubmit={submitPhotoAssetFromPhoto}>
+            <label className="form-field">
+              <span className="form-label">Asset name</span>
+              <input
+                className="form-input"
+                value={photoAssetName}
+                onChange={(e) => setPhotoAssetName(e.target.value)}
+                disabled={photoAssetSaving}
+                required
+              />
+            </label>
+            <label className="form-field">
+              <span className="form-label">Device type</span>
+              <select
+                className="form-input"
+                style={filterToolbarControlStyle}
+                value={photoAssetType}
+                onChange={(e) => setPhotoAssetType(e.target.value)}
+                disabled={photoAssetSaving}
+              >
+                {ASSET_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="form-field">
+              <span className="form-label">Location</span>
+              <input
+                className="form-input"
+                value={photoAssetLocation}
+                onChange={(e) => setPhotoAssetLocation(e.target.value)}
+                placeholder="Rack, room, or area (optional)"
+                disabled={photoAssetSaving}
+              />
+            </label>
+            {photoAssetError ? <p className="error">{photoAssetError}</p> : null}
+            <div className="form-actions">
+              <button type="submit" className="btn" disabled={photoAssetSaving}>
+                {photoAssetSaving ? "Creating…" : "Create asset & link photo"}
+              </button>
+            </div>
+          </form>
+        </aside>
+      </div>
+    ) : null}
+    </>
   );
 }

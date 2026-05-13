@@ -29,6 +29,16 @@ type AssetNote = {
   created_at: string | null;
 };
 
+type AssetLinkedPhoto = {
+  id: number;
+  site_id: number;
+  url: string;
+  filename: string;
+  asset_id: number | null;
+  uploaded_at: string | null;
+  previewUrl: string;
+};
+
 const inputStyle: CSSProperties = {
   width: "100%",
   padding: "10px 12px",
@@ -78,6 +88,7 @@ export default function AssetDetailPage() {
   const [newNote, setNewNote] = useState("");
   const [newNoteType, setNewNoteType] = useState<NoteType>("general");
   const [error, setError] = useState("");
+  const [linkedPhotos, setLinkedPhotos] = useState<AssetLinkedPhoto[] | null>(null);
 
   const loadAsset = useCallback(async () => {
     if (!assetId) {
@@ -140,10 +151,36 @@ export default function AssetDetailPage() {
     }
   }, [assetId]);
 
+  const loadLinkedPhotos = useCallback(async () => {
+    if (!assetId) {
+      setLinkedPhotos(null);
+      return;
+    }
+
+    setLinkedPhotos(null);
+
+    try {
+      const response = await fetch(
+        `/api/assets/${encodeURIComponent(assetId)}/photos`
+      );
+
+      if (!response.ok) {
+        setLinkedPhotos([]);
+        return;
+      }
+
+      const data = (await response.json()) as { photos?: AssetLinkedPhoto[] };
+      setLinkedPhotos(Array.isArray(data.photos) ? data.photos : []);
+    } catch {
+      setLinkedPhotos([]);
+    }
+  }, [assetId]);
+
   useEffect(() => {
     loadAsset();
     loadNotes();
-  }, [loadAsset, loadNotes]);
+    loadLinkedPhotos();
+  }, [loadAsset, loadNotes, loadLinkedPhotos]);
 
   function handleEdit() {
     if (!asset) return;
@@ -302,6 +339,66 @@ export default function AssetDetailPage() {
       ) : asset ? (
         <>
           {error ? <p className="error">{error}</p> : null}
+
+          {linkedPhotos !== null && linkedPhotos.length > 0 ? (
+            <section className="card" aria-labelledby="asset-photos-title">
+              <header className="form-card__head" style={{ marginBottom: "4px" }}>
+                <p className="site-section-kicker">Documentation</p>
+                <h2 id="asset-photos-title" className="site-section-title">
+                  Asset Photos
+                </h2>
+                <p className="site-section-lead">
+                  Site images linked to this hardware record (served via your existing secure photo
+                  URLs).
+                </p>
+              </header>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+                  gap: "14px",
+                }}
+              >
+                {linkedPhotos.map((photo) => (
+                  <figure key={photo.id} style={{ margin: 0 }}>
+                    <div
+                      style={{
+                        aspectRatio: "4 / 3",
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        border: "1px solid var(--border)",
+                        background: "rgba(15, 23, 42, 0.55)",
+                      }}
+                    >
+                      <img
+                        src={photo.previewUrl}
+                        alt=""
+                        loading="lazy"
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                      />
+                    </div>
+                    <figcaption
+                      style={{
+                        marginTop: "8px",
+                        fontSize: "0.8rem",
+                        color: "var(--text-muted)",
+                        lineHeight: 1.35,
+                        wordBreak: "break-word",
+                      }}
+                      title={String(photo.filename ?? "")}
+                    >
+                      {photo.filename || "—"}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <section className="card" aria-labelledby="asset-record-title">
             <header className="form-card__head">
