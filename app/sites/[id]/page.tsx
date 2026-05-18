@@ -589,6 +589,23 @@ export default function SiteAssetsPage() {
     setNetSnapshotFieldError("");
   }
 
+  async function saveActiveNetSnapshotEdit() {
+    if (!netSnapshotEditing) return;
+    if (netSnapshotEditing === "isp") {
+      await commitNetSnapshotText("isp", netSnapshotDraftText);
+    } else if (netSnapshotEditing === "corp_ssid") {
+      await commitNetSnapshotText("corp_ssid", netSnapshotDraftText);
+    } else if (netSnapshotEditing === "guest_ssid") {
+      await commitNetSnapshotText("guest_ssid", netSnapshotDraftText);
+    } else if (netSnapshotEditing === "aps") {
+      await commitNetSnapshotAps();
+    } else if (netSnapshotEditing === "device_count") {
+      await commitNetSnapshotDeviceCount();
+    } else if (netSnapshotEditing === "speed") {
+      await commitNetSnapshotSpeed();
+    }
+  }
+
   async function commitNetSnapshotText(
     field: "isp" | "corp_ssid" | "guest_ssid",
     draft: string
@@ -1106,7 +1123,7 @@ export default function SiteAssetsPage() {
           </h2>
           <p className="site-section-lead">
             Quick reference for connectivity, Wi‑Fi, access points, and last speed test results.
-            Click any value to edit; press Enter or click away to save.
+            Click any value to edit, then use Save or Cancel.
           </p>
         </header>
 
@@ -1119,6 +1136,30 @@ export default function SiteAssetsPage() {
         ) : (
           <>
             {netSnapshotFieldError ? <p className="error">{netSnapshotFieldError}</p> : null}
+
+            {netSnapshotEditing ? (
+              <div className="net-snapshot-edit-bar" role="toolbar" aria-label="Snapshot edit actions">
+                <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", flex: 1 }}>
+                  Editing snapshot field — save or cancel your changes.
+                </span>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={netSnapshotSaving}
+                  onClick={() => void saveActiveNetSnapshotEdit()}
+                >
+                  {netSnapshotSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={netSnapshotSaving}
+                  onClick={cancelNetSnapshotEdit}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : null}
 
             <div style={{ display: "grid", gap: 0 }}>
               <div style={netSnapshotRowStyle}>

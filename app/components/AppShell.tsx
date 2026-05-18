@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/clients", label: "Clients" },
   { href: "/clients/new", label: "New Client" },
   { href: "/assets", label: "Inventory" },
+  { href: "/queue", label: "Work Queue" },
   { href: "/scan", label: "Network Scan" },
 ] as const;
 
@@ -26,6 +27,7 @@ function isNavActive(href: string, pathname: string): boolean {
     return pathname.startsWith("/clients") || pathname.startsWith("/sites/");
   }
   if (href === "/assets") return pathname.startsWith("/assets");
+  if (href === "/queue") return pathname === "/queue" || pathname.startsWith("/queue/");
   if (href === "/scan") return pathname === "/scan" || pathname.startsWith("/scan/");
   return pathname === href || pathname.startsWith(`${href}/`);
 }

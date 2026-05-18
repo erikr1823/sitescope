@@ -5,6 +5,7 @@ import { sql } from "../../../lib/db";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
+  const siteIdParam = searchParams.get("site_id");
 
   if (id) {
     try {
@@ -34,6 +35,28 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (siteIdParam != null && siteIdParam.trim() !== "") {
+      const siteId = Number(siteIdParam);
+      if (!Number.isFinite(siteId) || siteId <= 0) {
+        return NextResponse.json({ error: "Invalid site_id" }, { status: 400 });
+      }
+
+      const assets = await sql(
+        `SELECT
+           assets.*,
+           clients.name AS client_name,
+           sites.name AS site_name
+         FROM assets
+         JOIN clients ON clients.id = assets.client_id
+         JOIN sites ON sites.id = assets.site_id
+         WHERE assets.site_id = $1
+         ORDER BY assets.id DESC`,
+        [siteId]
+      );
+
+      return NextResponse.json(assets);
+    }
+
     const assets = await sql(
       `SELECT
          assets.*,

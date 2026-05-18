@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="SiteScope">
+  <rect width="192" height="192" rx="32" fill="#0b1220"/>
+  <rect x="24" y="24" width="144" height="144" rx="24" fill="#1e293b" stroke="#3b82f6" stroke-width="4"/>
+  <text x="96" y="112" text-anchor="middle" font-family="system-ui,sans-serif" font-size="52" font-weight="700" fill="#3b82f6">SS</text>
+</svg>
