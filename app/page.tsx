@@ -12,6 +12,9 @@ import {
   YAxis,
 } from "recharts";
 
+const DASHBOARD_SUBTITLE =
+  "Live Neon counts, asset trends, and site health from Network Snapshot data.";
+
 type DashboardPayload = {
   total_clients: number;
   total_sites: number;
@@ -108,9 +111,7 @@ export default function DashboardHomePage() {
         <div className="dashboard-hero__row">
           <div>
             <h1 className="page__title">Dashboard</h1>
-            <p className="page__subtle">
-              Live Neon counts, asset trends, and site health from Network Snapshot data.
-            </p>
+            <p className="page__subtitle page__subtle">{DASHBOARD_SUBTITLE}</p>
           </div>
           <div className="dashboard-hero__actions">
             <Link href="/clients" className="btn">
