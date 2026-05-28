@@ -156,13 +156,16 @@ export default function QueuePage() {
   }
 
   return (
-    <main className="page dashboard-page">
+    <main className="page dashboard-page mobile-safe-page">
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
             <h1 className="page__title">Work Queue</h1>
             <p className="page__subtle">
               Track tickets with status and priority — update items inline for fast triage.
+            </p>
+            <p className="dashboard-hero__hint">
+              Track client follow-ups, repairs, and site tasks from one queue.
             </p>
           </div>
           <div className="dashboard-hero__actions">
@@ -231,7 +234,14 @@ export default function QueuePage() {
         {error ? <p className="error">{error}</p> : null}
 
         {isLoading ? (
-          <p className="status">Loading queue…</p>
+          <div className="queue-skeleton" aria-label="Loading queue">
+            <div className="skeleton-line skeleton-line--title" />
+            <div className="skeleton-table">
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+            </div>
+          </div>
         ) : items.length === 0 ? (
           <div className="empty-state">
             <p className="status">No queue items yet.</p>
@@ -254,16 +264,7 @@ export default function QueuePage() {
                   <td className="font-medium">
                     <div>{item.title}</div>
                     {item.description ? (
-                      <p
-                        style={{
-                          margin: "4px 0 0",
-                          fontSize: "0.82rem",
-                          color: "var(--text-muted)",
-                          fontWeight: 400,
-                        }}
-                      >
-                        {item.description}
-                      </p>
+                      <p className="queue-item-description">{item.description}</p>
                     ) : null}
                   </td>
                   <td className="hidden md:table-cell" style={{ fontSize: "0.88rem" }}>

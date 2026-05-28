@@ -65,8 +65,29 @@ function formatChartDate(iso: string): string {
 }
 
 function formatSpeed(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  return `${value} Mbps`;
+  if (value == null || !Number.isFinite(value)) return "Speed not set";
+  return `${value} Mbps down`;
+}
+
+function formatApSummary(apOnline: number | null, apTotal: number | null): string {
+  if (apOnline == null && apTotal == null) return "APs not set";
+  if (apOnline != null && apTotal != null) return `APs ${apOnline}/${apTotal} online`;
+  if (apTotal != null) return `APs ${apTotal} total`;
+  if (apOnline != null) return `APs ${apOnline} online`;
+  return "APs not set";
+}
+
+function formatDeviceSummary(count: number | null): string {
+  if (count == null) return "Devices not set";
+  return `Devices ${count}`;
+}
+
+function formatSiteHealthMeta(site: DashboardPayload["site_health"][number]): string {
+  return [
+    formatApSummary(site.ap_online, site.ap_total),
+    formatDeviceSummary(site.device_count),
+    formatSpeed(site.last_speed_down),
+  ].join(" · ");
 }
 
 function healthLabel(health: DashboardPayload["site_health"][number]["health"]): string {
@@ -320,9 +341,7 @@ export default function DashboardHomePage() {
                             <span className="site-health-list__name">{site.site_name}</span>
                             <span className="site-health-list__client">{site.client_name}</span>
                             <span className="site-health-list__meta">
-                              APs {site.ap_online ?? "—"}/{site.ap_total ?? "—"} · Devices{" "}
-                              {site.device_count ?? "—"} · Speed{" "}
-                              {formatSpeed(site.last_speed_down)} down
+                              {formatSiteHealthMeta(site)}
                             </span>
                           </div>
                         </Link>

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import AssetMobileList from "../components/AssetMobileList";
 import FeedbackPanel from "../components/FeedbackPanel";
 import { useAppUser } from "../components/AppUserProvider";
+import { assetStatusBadgeClass } from "../../lib/asset-status";
 
 type Asset = {
   id: number;
@@ -381,7 +382,9 @@ export default function AssetsPage() {
                     </td>
                     <td>{asset.type}</td>
                     <td>{asset.serial_number}</td>
-                    <td>{asset.status}</td>
+                    <td>
+                      <span className={assetStatusBadgeClass(asset.status)}>{asset.status}</span>
+                    </td>
                     <td>{asset.client_name}</td>
                     <td>{asset.site_name}</td>
                   </tr>
@@ -390,7 +393,17 @@ export default function AssetsPage() {
             </table>
           </section>
 
-          <AssetMobileList assets={assets} />
+          <AssetMobileList
+            assets={assets.map((asset) => ({
+              id: asset.id,
+              name: asset.name,
+              type: asset.type,
+              notes: asset.notes,
+              site_name: asset.site_name,
+              client_name: asset.client_name,
+              status: asset.status,
+            }))}
+          />
         </>
       )}
     </main>

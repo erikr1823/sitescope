@@ -528,7 +528,13 @@ export default function NetworkScanPage() {
         {!selectedSiteId ? (
           <p className="status">Select a site to load scan history.</p>
         ) : scansLoading ? (
-          <p className="status">Loading scan history…</p>
+          <div className="scan-history-skeleton" aria-label="Loading scan history">
+            <div className="skeleton-line skeleton-line--title" />
+            <div className="skeleton-table">
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+            </div>
+          </div>
         ) : scansError ? (
           <p className="error">{scansError}</p>
         ) : scans.length === 0 ? (

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { parseNetworkFromNotes } from "../../lib/asset-network";
+import { assetStatusBadgeClass } from "../../lib/asset-status";
 
 export type AssetMobileListItem = {
   id: number;
   name: string;
   type: string;
+  status?: string;
   notes?: string | null;
   site_name?: string;
   client_name?: string;
@@ -32,7 +34,12 @@ export default function AssetMobileList({
           <Link key={asset.id} href={`/assets/${asset.id}`} className="asset-mobile-card">
             <div className="asset-mobile-card__head">
               <span className="asset-mobile-card__name">{asset.name}</span>
-              <span className="asset-type-badge">{asset.type}</span>
+              <div className="asset-mobile-card__badges">
+                <span className="asset-type-badge">{asset.type}</span>
+                {asset.status ? (
+                  <span className={assetStatusBadgeClass(asset.status)}>{asset.status}</span>
+                ) : null}
+              </div>
             </div>
             {ip ? (
               <p className="asset-mobile-card__row">

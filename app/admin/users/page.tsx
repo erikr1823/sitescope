@@ -197,16 +197,22 @@ export default function AdminUsersPage() {
               <option value="viewer">Viewer</option>
             </select>
           </label>
-          <label className="form-field form-field--checkbox">
+          <label className="form-field form-field--checkbox form-field--checkbox-card">
             <input
+              id="add-user-active"
               type="checkbox"
               checked={form.is_active}
               onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
             />
-            <span className="form-label">Active</span>
+            <span className="form-field--checkbox-card__copy">
+              <span className="form-label">Active user</span>
+              <span className="form-field--checkbox-card__hint">
+                Inactive users cannot access SiteScope features.
+              </span>
+            </span>
           </label>
-          {formError ? <p className="error">{formError}</p> : null}
-          <div className="form-actions">
+          {formError ? <p className="error admin-users-form__error">{formError}</p> : null}
+          <div className="form-actions admin-users-form__submit">
             <button type="submit" className="btn mobile-touch-btn" disabled={isSaving}>
               {isSaving ? "Creating…" : "Create user"}
             </button>
