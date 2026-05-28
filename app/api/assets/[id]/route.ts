@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { sql } from "../../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../../lib/app-user";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   const { id } = await Promise.resolve(context.params);
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { sql } from "../../../../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../../../../lib/app-user";
 
 type RouteContext = {
   params: Promise<{
@@ -22,10 +22,9 @@ function parseFollowupId(raw: string | undefined): number | null {
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   const { id, followupId: followupIdParam } = await context.params;
   const siteId = parseSiteId(id);

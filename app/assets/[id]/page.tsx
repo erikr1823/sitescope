@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
+import { useAppUser } from "../../components/AppUserProvider";
 
 type AssetDetail = {
   id: number;
@@ -66,6 +67,7 @@ function draftFromAsset(asset: AssetDetail): DraftFields {
 }
 
 export default function AssetDetailPage() {
+  const { canWrite } = useAppUser();
   const params = useParams<{ id?: string | string[] }>();
   const rawId = params?.id;
   const assetId = Array.isArray(rawId) ? rawId[0] : rawId;
@@ -87,6 +89,7 @@ export default function AssetDetailPage() {
   const [notesError, setNotesError] = useState("");
   const [newNote, setNewNote] = useState("");
   const [newNoteType, setNewNoteType] = useState<NoteType>("general");
+  const [noteSheetOpen, setNoteSheetOpen] = useState(false);
   const [error, setError] = useState("");
   const [linkedPhotos, setLinkedPhotos] = useState<AssetLinkedPhoto[] | null>(null);
 
@@ -260,6 +263,7 @@ export default function AssetDetailPage() {
       setServiceNotes((current) => [created, ...current]);
       setNewNote("");
       setNewNoteType("general");
+      setNoteSheetOpen(false);
     } catch {
       setNotesError("Unable to add service note. Please try again.");
     } finally {
@@ -288,7 +292,7 @@ export default function AssetDetailPage() {
   const valueStyle: CSSProperties = { margin: 0, wordBreak: "break-word" };
 
   return (
-    <main className="page dashboard-page">
+    <main className="page dashboard-page mobile-safe-page">
       <div className="page__header">
         <div>
           <h1 className="page__title">{asset?.name ?? "Asset"}</h1>
@@ -304,7 +308,7 @@ export default function AssetDetailPage() {
             Back to assets
           </Link>
 
-          {!isLoading && asset && !isEditing ? (
+          {!isLoading && asset && !isEditing && canWrite ? (
             <button type="button" className="btn" onClick={handleEdit}>
               Edit
             </button>
@@ -512,7 +516,7 @@ export default function AssetDetailPage() {
             </div>
           </section>
 
-          <section className="card" aria-labelledby="service-history-title">
+          <section className="card service-history-section" aria-labelledby="service-history-title">
             <header className="form-card__head">
               <p className="site-section-kicker">Maintenance log</p>
               <h2 id="service-history-title" className="site-section-title">
@@ -523,57 +527,75 @@ export default function AssetDetailPage() {
               </p>
             </header>
 
-            <form onSubmit={handleSubmitNote} style={{ display: "grid", gap: "12px", marginBottom: "16px" }}>
-              <div style={{ display: "grid", gap: "8px" }}>
-                <label htmlFor="service-note" style={labelStyle}>
-                  Note
-                </label>
-                <textarea
-                  id="service-note"
-                  style={{ ...inputStyle, minHeight: "110px", resize: "vertical", fontFamily: "inherit" }}
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Add maintenance details, changes made, or warnings..."
-                  disabled={isSubmittingNote}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "minmax(140px, 220px) auto",
-                  gap: "10px",
-                  alignItems: "end",
-                }}
+            {canWrite ? (
+              <form
+                onSubmit={handleSubmitNote}
+                className="service-note-form-desktop hidden md:grid"
+                style={{ gap: "12px", marginBottom: "16px" }}
               >
                 <div style={{ display: "grid", gap: "8px" }}>
-                  <label htmlFor="service-note-type" style={labelStyle}>
-                    Type
+                  <label htmlFor="service-note" style={labelStyle}>
+                    Note
                   </label>
-                  <select
-                    id="service-note-type"
-                    style={inputStyle}
-                    value={newNoteType}
-                    onChange={(e) => setNewNoteType(e.target.value as NoteType)}
+                  <textarea
+                    id="service-note"
+                    style={{ ...inputStyle, minHeight: "110px", resize: "vertical", fontFamily: "inherit" }}
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add maintenance details, changes made, or warnings..."
                     disabled={isSubmittingNote}
-                  >
-                    <option value="general">general</option>
-                    <option value="repair">repair</option>
-                    <option value="config">config</option>
-                    <option value="warning">warning</option>
-                  </select>
+                  />
                 </div>
 
-                <button
-                  type="submit"
-                  className="btn"
-                  disabled={isSubmittingNote}
-                  style={{ width: "fit-content" }}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "minmax(140px, 220px) auto",
+                    gap: "10px",
+                    alignItems: "end",
+                  }}
                 >
-                  {isSubmittingNote ? "Adding…" : "Add note"}
-                </button>
-              </div>
-            </form>
+                  <div style={{ display: "grid", gap: "8px" }}>
+                    <label htmlFor="service-note-type" style={labelStyle}>
+                      Type
+                    </label>
+                    <select
+                      id="service-note-type"
+                      style={inputStyle}
+                      value={newNoteType}
+                      onChange={(e) => setNewNoteType(e.target.value as NoteType)}
+                      disabled={isSubmittingNote}
+                    >
+                      <option value="general">general</option>
+                      <option value="repair">repair</option>
+                      <option value="config">config</option>
+                      <option value="warning">warning</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn"
+                    disabled={isSubmittingNote}
+                    style={{ width: "fit-content" }}
+                  >
+                    {isSubmittingNote ? "Adding…" : "Add note"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <p className="status">Read-only access — you can view notes but cannot add new ones.</p>
+            )}
+
+            {canWrite ? (
+              <button
+                type="button"
+                className="btn mobile-touch-btn md:hidden service-note-fab"
+                onClick={() => setNoteSheetOpen(true)}
+              >
+                Add note
+              </button>
+            ) : null}
 
             {notesError ? <p className="error">{notesError}</p> : null}
 
@@ -582,38 +604,81 @@ export default function AssetDetailPage() {
             ) : serviceNotes.length === 0 ? (
               <p className="status">No service notes yet.</p>
             ) : (
-              <div style={{ display: "grid", gap: "10px" }}>
+              <div className="notes-timeline service-notes-timeline">
                 {serviceNotes.map((noteItem) => (
-                  <article
-                    key={noteItem.id}
-                    style={{
-                      border: "1px solid var(--border)",
-                      borderRadius: "12px",
-                      padding: "12px",
-                      background: "var(--bg-elevated)",
-                      display: "grid",
-                      gap: "8px",
-                    }}
-                  >
-                    <p style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{noteItem.note}</p>
-                    <div
-                      style={{
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: "8px 14px",
-                        color: "var(--text-muted)",
-                        fontSize: "0.82rem",
-                      }}
-                    >
-                      <span>Type: {noteItem.note_type}</span>
+                  <article key={noteItem.id} className="note-timeline-card">
+                    <div className="note-timeline-card__head">
+                      <span className={`note-type-badge note-type-badge--${noteItem.note_type}`}>
+                        {noteItem.note_type}
+                      </span>
+                      <time className="note-timeline-card__time">
+                        {formatTimestamp(noteItem.created_at)}
+                      </time>
+                    </div>
+                    <p className="note-timeline-card__body">{noteItem.note}</p>
+                    <div className="note-timeline-card__meta">
                       <span>By: {noteItem.created_by || "Unknown user"}</span>
-                      <span>{formatTimestamp(noteItem.created_at)}</span>
                     </div>
                   </article>
                 ))}
               </div>
             )}
           </section>
+
+          {canWrite && noteSheetOpen ? (
+            <>
+              <button
+                type="button"
+                className="mobile-sheet-backdrop"
+                aria-label="Close add note"
+                onClick={() => setNoteSheetOpen(false)}
+              />
+              <div className="mobile-sheet" role="dialog" aria-labelledby="mobile-note-title">
+                <div className="mobile-sheet__handle" aria-hidden="true" />
+                <h3 id="mobile-note-title" className="site-section-title">
+                  Add service note
+                </h3>
+                <form className="form-stack" onSubmit={handleSubmitNote}>
+                  <label className="form-field">
+                    <span className="form-label">Note</span>
+                    <textarea
+                      className="form-input mobile-touch-input"
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Maintenance details…"
+                      disabled={isSubmittingNote}
+                    />
+                  </label>
+                  <label className="form-field">
+                    <span className="form-label">Type</span>
+                    <select
+                      className="form-input mobile-touch-input"
+                      value={newNoteType}
+                      onChange={(e) => setNewNoteType(e.target.value as NoteType)}
+                      disabled={isSubmittingNote}
+                    >
+                      <option value="general">general</option>
+                      <option value="repair">repair</option>
+                      <option value="config">config</option>
+                      <option value="warning">warning</option>
+                    </select>
+                  </label>
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary mobile-touch-btn"
+                      onClick={() => setNoteSheetOpen(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn mobile-touch-btn" disabled={isSubmittingNote}>
+                      {isSubmittingNote ? "Adding…" : "Save note"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </>
+          ) : null}
         </>
       ) : null}
     </main>

@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 type DashboardPayload = {
   total_clients: number;
   total_sites: number;
   total_assets: number;
+  assets_this_week: number;
+  assets_last_week: number;
+  assets_daily: { date: string; count: number }[];
   recent_assets: {
     id: number;
     name: string;
@@ -16,36 +28,48 @@ type DashboardPayload = {
     client_name: string;
     created_at: string | null;
   }[];
+  site_health: {
+    site_id: number;
+    site_name: string;
+    client_name: string;
+    ap_total: number | null;
+    ap_online: number | null;
+    device_count: number | null;
+    last_speed_down: number | null;
+    last_speed_up: number | null;
+    open_followups: number;
+    health: "green" | "yellow" | "red" | "gray";
+  }[];
 };
 
-const summaryCards = [
-  {
-    key: "total_clients" as const,
-    title: "Clients",
-    href: "/clients",
-    description: "Organizations you support — open records to manage contacts and ownership.",
-    cta: "View clients",
-  },
-  {
-    key: "total_sites" as const,
-    title: "Sites",
-    href: "/clients",
-    description: "Physical or logical locations tied to clients; drill in from any client record.",
-    cta: "Browse via clients",
-  },
-  {
-    key: "total_assets" as const,
-    title: "Inventory",
-    href: "/assets",
-    description: "Hardware and devices across your estate — serials, status, and placement.",
-    cta: "Open inventory",
-  },
+const statCards = [
+  { key: "total_clients" as const, title: "Total Clients", href: "/clients" },
+  { key: "total_sites" as const, title: "Total Sites", href: "/clients" },
+  { key: "total_assets" as const, title: "Total Assets", href: "/assets" },
+  { key: "assets_this_week" as const, title: "Assets This Week", href: "/assets" },
 ];
 
 function formatCreatedAt(value: string | null): string {
   if (value == null || value === "") return "—";
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+}
+
+function formatChartDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function formatSpeed(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value} Mbps`;
+}
+
+function healthLabel(health: DashboardPayload["site_health"][number]["health"]): string {
+  if (health === "green") return "Normal";
+  if (health === "yellow") return "Open follow-ups";
+  if (health === "red") return "Needs attention";
+  return "No snapshot";
 }
 
 export default function DashboardHomePage() {
@@ -71,6 +95,13 @@ export default function DashboardHomePage() {
     load();
   }, []);
 
+  const weekTrend =
+    data && data.assets_last_week > 0
+      ? Math.round(
+          ((data.assets_this_week - data.assets_last_week) / data.assets_last_week) * 100
+        )
+      : null;
+
   return (
     <main className="page dashboard-page">
       <header className="dashboard-hero">
@@ -78,11 +109,7 @@ export default function DashboardHomePage() {
           <div>
             <h1 className="page__title">Dashboard</h1>
             <p className="page__subtle">
-              Live counts and the latest additions across your IT footprint.
-            </p>
-            <p className="dashboard-hero__hint">
-              Use this view for a quick health check before diving into clients, sites, or the
-              full asset register. Numbers refresh each time you open the dashboard.
+              Live Neon counts, asset trends, and site health from Network Snapshot data.
             </p>
           </div>
           <div className="dashboard-hero__actions">
@@ -99,48 +126,36 @@ export default function DashboardHomePage() {
         </div>
       </header>
 
-      <section className="dashboard-quick-actions card" aria-label="Quick actions">
-        <p className="site-section-kicker">Command center</p>
-        <h2 className="site-section-title">Quick actions</h2>
-        <div className="dashboard-quick-actions__grid">
-          <Link href="/scan" className="dashboard-quick-actions__item">
-            <span className="dashboard-quick-actions__title">Run Network Scan</span>
-            <span className="dashboard-quick-actions__meta">
-              Launch the scan console and discover devices fast.
-            </span>
-          </Link>
-          <Link href="/assets" className="dashboard-quick-actions__item">
-            <span className="dashboard-quick-actions__title">Open Inventory</span>
-            <span className="dashboard-quick-actions__meta">
-              Review all inventory items and drill into details.
-            </span>
-          </Link>
-        </div>
-      </section>
-
       {isLoading ? (
         <>
-          <section className="dashboard-stat-grid" aria-label="Loading dashboard metrics">
-            <div className="card">
-              <div className="skeleton-line skeleton-line--title" />
-              <div className="skeleton-line skeleton-line--metric" />
-            </div>
-            <div className="card">
-              <div className="skeleton-line skeleton-line--title" />
-              <div className="skeleton-line skeleton-line--metric" />
-            </div>
-            <div className="card">
-              <div className="skeleton-line skeleton-line--title" />
-              <div className="skeleton-line skeleton-line--metric" />
-            </div>
+          <section className="dashboard-stat-grid dashboard-stat-grid--four" aria-label="Loading metrics">
+            {[0, 1, 2, 3].map((key) => (
+              <div key={key} className="card dashboard-stat-card dashboard-stat-card--skeleton">
+                <div className="skeleton-line skeleton-line--title" />
+                <div className="skeleton-line skeleton-line--metric" />
+              </div>
+            ))}
           </section>
-          <section className="card" aria-label="Loading dashboard activity">
-            <div className="skeleton-line skeleton-line--title" />
-            <div className="skeleton-line" />
-            <div className="skeleton-table">
-              <div className="skeleton-table__row" />
-              <div className="skeleton-table__row" />
-              <div className="skeleton-table__row" />
+          <section className="dashboard-split">
+            <div className="card">
+              <div className="skeleton-line skeleton-line--title" />
+              <div className="skeleton-chart" />
+            </div>
+            <div className="dashboard-split__bottom">
+              <div className="card">
+                <div className="skeleton-line skeleton-line--title" />
+                <div className="skeleton-table">
+                  <div className="skeleton-table__row" />
+                  <div className="skeleton-table__row" />
+                </div>
+              </div>
+              <div className="card">
+                <div className="skeleton-line skeleton-line--title" />
+                <div className="skeleton-table">
+                  <div className="skeleton-table__row" />
+                  <div className="skeleton-table__row" />
+                </div>
+              </div>
             </div>
           </section>
         </>
@@ -148,70 +163,145 @@ export default function DashboardHomePage() {
         <p className="error">{error}</p>
       ) : data ? (
         <>
-          <section className="dashboard-stat-grid" aria-label="Summary statistics">
-            {summaryCards.map((card) => (
-              <Link
-                key={card.key}
-                href={card.href}
-                className="dashboard-stat-card"
-              >
+          <section className="dashboard-stat-grid dashboard-stat-grid--four" aria-label="Summary statistics">
+            {statCards.map((card) => (
+              <Link key={card.key} href={card.href} className="dashboard-stat-card">
                 <span className="dashboard-stat-card__eyebrow">{card.title}</span>
                 <span className="dashboard-stat-card__value">{data[card.key]}</span>
-                <p className="dashboard-stat-card__hint">{card.description}</p>
-                <span className="dashboard-stat-card__cta">{card.cta} →</span>
+                {card.key === "assets_this_week" && weekTrend != null ? (
+                  <span className="dashboard-stat-card__hint">
+                    {weekTrend >= 0 ? "+" : ""}
+                    {weekTrend}% vs last week
+                  </span>
+                ) : (
+                  <span className="dashboard-stat-card__hint">Live from Neon</span>
+                )}
               </Link>
             ))}
           </section>
 
-          <section className="card table-wrap dashboard-section" aria-labelledby="recent-assets-heading">
-            <div className="dashboard-section__header">
-              <p className="dashboard-section__kicker">Activity</p>
-              <h2 id="recent-assets-heading" className="dashboard-section__title">
-                Recent inventory
-              </h2>
-              <p className="dashboard-section__lead">
-                The ten most recently created assets, across all clients and sites. Use this list
-                to spot new deployments without running a full inventory report.
-              </p>
-            </div>
+          <section className="dashboard-split">
+            <section className="card dashboard-chart-card" aria-labelledby="asset-trend-title">
+              <header className="dashboard-section__header">
+                <p className="dashboard-section__kicker">Trend</p>
+                <h2 id="asset-trend-title" className="dashboard-section__title">
+                  Assets added — last 30 days
+                </h2>
+              </header>
+              <div className="dashboard-chart-wrap">
+                <ResponsiveContainer width="100%" height={260}>
+                  <AreaChart data={data.assets_daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="assetAreaFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(148,163,184,0.15)" vertical={false} />
+                    <XAxis
+                      dataKey="date"
+                      tickFormatter={formatChartDate}
+                      stroke="#94a3b8"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      stroke="#94a3b8"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      width={32}
+                    />
+                    <Tooltip
+                      labelFormatter={(label) => formatChartDate(String(label))}
+                      contentStyle={{
+                        background: "#0f172a",
+                        border: "1px solid rgba(148,163,184,0.25)",
+                        borderRadius: 10,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      name="Assets"
+                      stroke="#60a5fa"
+                      fill="url(#assetAreaFill)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
 
-            {data.recent_assets.length === 0 ? (
-              <p className="status">
-                No assets yet. Add hardware from a site page or your asset workflow to see them
-                here.
-              </p>
-            ) : (
-              <table className="table w-full max-md:!min-w-0">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th className="hidden md:table-cell">Serial Number</th>
-                    <th className="hidden md:table-cell">Site</th>
-                    <th className="hidden md:table-cell">Client</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.recent_assets.map((asset) => (
-                    <tr key={asset.id}>
-                      <td>
-                        <Link href={`/assets/${asset.id}`} className="asset-link">
-                          {asset.name}
+            <div className="dashboard-split__bottom">
+              <section className="card" aria-labelledby="recent-assets-heading">
+                <header className="dashboard-section__header">
+                  <p className="dashboard-section__kicker">Recent</p>
+                  <h2 id="recent-assets-heading" className="dashboard-section__title">
+                    Latest assets
+                  </h2>
+                </header>
+                {data.recent_assets.length === 0 ? (
+                  <p className="status">No assets yet.</p>
+                ) : (
+                  <ul className="dashboard-recent-list">
+                    {data.recent_assets.map((asset) => (
+                      <li key={asset.id}>
+                        <Link href={`/assets/${asset.id}`} className="dashboard-recent-list__item">
+                          <span className="dashboard-recent-list__name">{asset.name}</span>
+                          <span className="dashboard-recent-list__meta">
+                            {asset.type} · {asset.site_name}
+                          </span>
+                          <span className="dashboard-recent-list__time">
+                            {formatCreatedAt(asset.created_at)}
+                          </span>
                         </Link>
-                      </td>
-                      <td>{asset.type}</td>
-                      <td className="hidden md:table-cell">{asset.serial_number}</td>
-                      <td className="hidden md:table-cell">{asset.site_name}</td>
-                      <td className="hidden md:table-cell">{asset.client_name}</td>
-                      <td className="whitespace-nowrap text-sm md:text-base">
-                        {formatCreatedAt(asset.created_at)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              <section className="card" aria-labelledby="site-health-heading">
+                <header className="dashboard-section__header">
+                  <p className="dashboard-section__kicker">Network Snapshot</p>
+                  <h2 id="site-health-heading" className="dashboard-section__title">
+                    Site health
+                  </h2>
+                </header>
+                {data.site_health.length === 0 ? (
+                  <p className="status">No sites yet.</p>
+                ) : (
+                  <ul className="site-health-list">
+                    {data.site_health.map((site) => (
+                      <li key={site.site_id}>
+                        <Link
+                          href={`/sites/${site.site_id}`}
+                          className="site-health-list__item"
+                        >
+                          <span
+                            className={`health-dot health-dot--${site.health}`}
+                            aria-label={healthLabel(site.health)}
+                          />
+                          <div className="site-health-list__body">
+                            <span className="site-health-list__name">{site.site_name}</span>
+                            <span className="site-health-list__client">{site.client_name}</span>
+                            <span className="site-health-list__meta">
+                              APs {site.ap_online ?? "—"}/{site.ap_total ?? "—"} · Devices{" "}
+                              {site.device_count ?? "—"} · Speed{" "}
+                              {formatSpeed(site.last_speed_down)} down
+                            </span>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </div>
           </section>
         </>
       ) : null}

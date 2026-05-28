@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { sql } from "../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../lib/app-user";
 
 const STATUSES = ["Open", "In Progress", "Waiting", "Done"] as const;
 const PRIORITIES = ["Low", "Medium", "High", "Urgent"] as const;
@@ -74,10 +74,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   let body: unknown;
   try {

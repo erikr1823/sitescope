@@ -1,8 +1,8 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { putR2Object } from "../../../../../lib/r2";
 import { sql } from "../../../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../../../lib/app-user";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -66,10 +66,9 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   const { id } = await context.params;
   const siteId = parseSiteId(id);

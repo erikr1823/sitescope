@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { sql } from "../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../lib/app-user";
 
 type ScanRequestBody = {
   subnet?: string;
@@ -29,10 +29,9 @@ const mockDevices = [
 ];
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   try {
     const body = (await request.json()) as ScanRequestBody;

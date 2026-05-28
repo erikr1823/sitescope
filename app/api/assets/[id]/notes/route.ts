@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { currentUser } from "@clerk/nextjs/server";
 import { sql } from "../../../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../../../lib/app-user";
 
 type RouteContext = {
   params: Promise<{
@@ -37,11 +38,9 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function POST(request: Request, context: RouteContext) {
-  const { userId } = await auth();
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   const { id } = await context.params;
   const assetId = Number(id);

@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { sql } from "../../../lib/db";
+import { requireWriteAccess, authFailureResponse } from "../../../lib/app-user";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const clientId = searchParams.get("client_id");
 
   if (!clientId) {
-    return NextResponse.json(
-      { error: "client_id is required" },
-      { status: 400 }
+    const sites = await sql(
+      `SELECT sites.*, clients.name AS client_name
+       FROM sites
+       JOIN clients ON clients.id = sites.client_id
+       ORDER BY sites.name ASC, sites.id ASC`,
+      []
     );
+    return NextResponse.json(sites);
   }
 
   const sites = await sql(
@@ -22,10 +26,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const authResult = await requireWriteAccess();
+  const denied = authFailureResponse(authResult);
+  if (denied) return denied;
 
   try {
     const body = await request.json();

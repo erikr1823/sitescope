@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import AppShell from "./components/AppShell";
+import { AppUserProvider } from "./components/AppUserProvider";
 import ServiceWorkerRegister from "./components/ServiceWorkerRegister";
 import "./globals.css";
 
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <ClerkProvider>
           <ServiceWorkerRegister />
-          <AppShell>{children}</AppShell>
+          <AppUserProvider>
+            <AppShell>{children}</AppShell>
+          </AppUserProvider>
         </ClerkProvider>
       </body>
     </html>
