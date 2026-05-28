@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AssetMobileList from "../../components/AssetMobileList";
 
 type Asset = {
   id: number;
@@ -1096,7 +1097,7 @@ export default function SiteAssetsPage() {
 
   return (
     <>
-    <main className="page site-page">
+    <main className="page site-page mobile-safe-page">
       <div className="page__header site-page__header">
         <div>
           <h1 className="page__title">Site Assets</h1>
@@ -1832,7 +1833,7 @@ export default function SiteAssetsPage() {
             <label className="form-field">
               <span className="form-label">Name</span>
               <input
-                className="form-input"
+                className="form-input mobile-touch-input"
                 value={manualAsset.name}
                 onChange={(event) =>
                   setManualAsset((current) => ({ ...current, name: event.target.value }))
@@ -1843,7 +1844,7 @@ export default function SiteAssetsPage() {
             <label className="form-field">
               <span className="form-label">Type</span>
               <input
-                className="form-input"
+                className="form-input mobile-touch-input"
                 value={manualAsset.type}
                 onChange={(event) =>
                   setManualAsset((current) => ({ ...current, type: event.target.value }))
@@ -1853,7 +1854,7 @@ export default function SiteAssetsPage() {
             <label className="form-field">
               <span className="form-label">Serial Number</span>
               <input
-                className="form-input"
+                className="form-input mobile-touch-input"
                 value={manualAsset.serial_number}
                 onChange={(event) =>
                   setManualAsset((current) => ({
@@ -1866,7 +1867,7 @@ export default function SiteAssetsPage() {
             <label className="form-field">
               <span className="form-label">Status</span>
               <input
-                className="form-input"
+                className="form-input mobile-touch-input"
                 value={manualAsset.status}
                 onChange={(event) =>
                   setManualAsset((current) => ({ ...current, status: event.target.value }))
@@ -1876,7 +1877,7 @@ export default function SiteAssetsPage() {
             <label className="form-field">
               <span className="form-label">Notes</span>
               <textarea
-                className="form-input"
+                className="form-input mobile-touch-input"
                 value={manualAsset.notes}
                 onChange={(event) =>
                   setManualAsset((current) => ({ ...current, notes: event.target.value }))
@@ -1886,7 +1887,7 @@ export default function SiteAssetsPage() {
             {manualError ? <p className="error">{manualError}</p> : null}
             {manualSuccess ? <p className="status">{manualSuccess}</p> : null}
             <div className="form-actions">
-              <button className="btn" type="submit" disabled={manualSaving}>
+              <button className="btn mobile-touch-btn" type="submit" disabled={manualSaving}>
                 {manualSaving ? "Saving…" : "Save Asset"}
               </button>
             </div>
@@ -1992,7 +1993,7 @@ export default function SiteAssetsPage() {
       </section>
 
       <section
-        className="card table-wrap site-inventory-card"
+        className="card site-inventory-card"
         aria-labelledby="site-inventory-title"
       >
         <header className="site-inventory-card__head">
@@ -2009,7 +2010,7 @@ export default function SiteAssetsPage() {
             </div>
             <button
               type="button"
-              className="btn site-inventory-card__export-btn"
+              className="btn site-inventory-card__export-btn hidden md:inline-flex"
               onClick={exportAssetsCsv}
             >
               Export CSV
@@ -2018,9 +2019,22 @@ export default function SiteAssetsPage() {
         </header>
 
         {isLoading ? (
-          <p className="status">Loading assets…</p>
+          <div className="site-inventory-card__loading" aria-label="Loading site assets">
+            <div className="skeleton-line skeleton-line--title" />
+            <div className="asset-mobile-list md:hidden">
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+            </div>
+            <div className="skeleton-table hidden md:block">
+              <div className="skeleton-table__row" />
+              <div className="skeleton-table__row" />
+            </div>
+          </div>
         ) : error ? (
-          <p className="error">{error}</p>
+          <div className="empty-state">
+            <p className="feedback-panel__message feedback-panel__message--error">{error}</p>
+            <p className="status">Try refreshing the page or return to clients.</p>
+          </div>
         ) : assets.length === 0 ? (
           <div className="empty-state">
             <p className="status">No assets found for this site.</p>
@@ -2028,10 +2042,14 @@ export default function SiteAssetsPage() {
               Run a scan or add an asset manually to start this site's inventory.
             </p>
             <div className="form-actions">
-              <button type="button" className="btn" onClick={() => setManualFormOpen(true)}>
+              <button
+                type="button"
+                className="btn mobile-touch-btn"
+                onClick={() => setManualFormOpen(true)}
+              >
                 Add Asset Manually
               </button>
-              <Link href="/scan" className="btn-secondary">
+              <Link href="/scan" className="btn-secondary mobile-touch-btn">
                 Open Network Scan
               </Link>
             </div>
@@ -2074,36 +2092,41 @@ export default function SiteAssetsPage() {
             {filteredAssets.length === 0 ? (
               <p className="status">No assets match your search or type filter.</p>
             ) : (
-              <table className="table w-full max-md:!min-w-0">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th className="hidden md:table-cell">Serial Number</th>
-                    <th>Status</th>
-                    <th className="hidden md:table-cell">Client</th>
-                    <th className="hidden md:table-cell">Site</th>
-                    <th className="hidden md:table-cell">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredAssets.map((asset) => (
-                    <tr key={asset.id}>
-                      <td>
-                        <Link href={`/assets/${asset.id}`} className="asset-link">
-                          {asset.name}
-                        </Link>
-                      </td>
-                      <td>{asset.type}</td>
-                      <td className="hidden md:table-cell">{asset.serial_number}</td>
-                      <td>{asset.status}</td>
-                      <td className="hidden md:table-cell">{asset.client_name}</td>
-                      <td className="hidden md:table-cell">{asset.site_name}</td>
-                      <td className="hidden md:table-cell">{asset.notes?.trim() || "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <div className="table-wrap hidden md:block">
+                  <table className="table w-full">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Serial Number</th>
+                        <th>Status</th>
+                        <th>Client</th>
+                        <th>Site</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAssets.map((asset) => (
+                        <tr key={asset.id}>
+                          <td>
+                            <Link href={`/assets/${asset.id}`} className="asset-link">
+                              {asset.name}
+                            </Link>
+                          </td>
+                          <td>{asset.type}</td>
+                          <td>{asset.serial_number}</td>
+                          <td>{asset.status}</td>
+                          <td>{asset.client_name}</td>
+                          <td>{asset.site_name}</td>
+                          <td>{asset.notes?.trim() || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <AssetMobileList assets={filteredAssets} ariaLabel="Site asset cards" />
+              </>
             )}
           </>
         )}

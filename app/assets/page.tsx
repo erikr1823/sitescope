@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import AssetMobileList from "../components/AssetMobileList";
+import FeedbackPanel from "../components/FeedbackPanel";
 import { useAppUser } from "../components/AppUserProvider";
-import { parseNetworkFromNotes } from "../../lib/asset-network";
 
 type Asset = {
   id: number;
@@ -18,7 +19,6 @@ type Asset = {
   notes?: string;
 };
 
-type Client = { id: number; name: string };
 type Site = { id: number; name: string; client_id: number; client_name?: string };
 
 const defaultAssetForm = {
@@ -33,10 +33,10 @@ const defaultAssetForm = {
 export default function AssetsPage() {
   const { canWrite } = useAppUser();
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [showMobileForm, setShowMobileForm] = useState(false);
   const [assetForm, setAssetForm] = useState(defaultAssetForm);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -45,35 +45,52 @@ export default function AssetsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadAssets() {
+      setIsLoading(true);
+      setError("");
       try {
         const response = await fetch("/api/assets");
         if (!response.ok) throw new Error("Failed to load assets");
-        setAssets((await response.json()) as Asset[]);
+        const payload = (await response.json()) as Asset[];
+        if (!cancelled) setAssets(payload);
       } catch {
-        setError("Unable to load assets right now.");
+        if (!cancelled) {
+          setAssets([]);
+          setError("We couldn't load inventory. Check your connection and try again.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
+
     void loadAssets();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   useEffect(() => {
     if (!showMobileForm || !canWrite) return;
-    async function loadFormData() {
+
+    let cancelled = false;
+
+    async function loadSites() {
       try {
-        const [clientsRes, sitesRes] = await Promise.all([
-          fetch("/api/clients"),
-          fetch("/api/sites"),
-        ]);
-        if (clientsRes.ok) setClients((await clientsRes.json()) as Client[]);
-        if (sitesRes.ok) setSites((await sitesRes.json()) as Site[]);
+        const sitesRes = await fetch("/api/sites");
+        if (sitesRes.ok && !cancelled) {
+          setSites((await sitesRes.json()) as Site[]);
+        }
       } catch {
         // Non-blocking for list view
       }
     }
-    void loadFormData();
+
+    void loadSites();
+    return () => {
+      cancelled = true;
+    };
   }, [showMobileForm, canWrite]);
 
   const sitesById = useMemo(() => {
@@ -170,8 +187,7 @@ export default function AssetsPage() {
       setAssetForm(defaultAssetForm);
       setPhotoFile(null);
       setFormSuccess("Asset created.");
-      const listRes = await fetch("/api/assets");
-      if (listRes.ok) setAssets((await listRes.json()) as Asset[]);
+      setReloadKey((key) => key + 1);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to create asset.");
     } finally {
@@ -202,7 +218,7 @@ export default function AssetsPage() {
             {canWrite ? (
               <button
                 type="button"
-                className="btn md:hidden"
+                className="btn mobile-touch-btn md:hidden"
                 onClick={() => setShowMobileForm((open) => !open)}
               >
                 {showMobileForm ? "Close form" : "Add asset"}
@@ -311,13 +327,27 @@ export default function AssetsPage() {
           </div>
         </section>
       ) : error ? (
-        <section className="card">
-          <p className="error">{error}</p>
-        </section>
+        <FeedbackPanel
+          title="Inventory unavailable"
+          message={error}
+          tone="error"
+          actionLabel="Try again"
+          onAction={() => setReloadKey((key) => key + 1)}
+        />
       ) : assets.length === 0 ? (
         <section className="card">
-          <h2 className="site-section-title">No inventory items found</h2>
-          <p className="status">Start by adding an asset or running a network scan.</p>
+          <div className="empty-state">
+            <h2 className="site-section-title">No inventory items yet</h2>
+            <p className="status">Add an asset from a site, run a network scan, or use Add asset on mobile.</p>
+            <div className="form-actions">
+              <Link href="/clients" className="btn mobile-touch-btn">
+                Open clients
+              </Link>
+              <Link href="/scan" className="btn-secondary mobile-touch-btn">
+                Run scan
+              </Link>
+            </div>
+          </div>
         </section>
       ) : (
         <>
@@ -360,30 +390,7 @@ export default function AssetsPage() {
             </table>
           </section>
 
-          <section className="asset-mobile-list md:hidden" aria-label="Mobile asset cards">
-            {assets.map((asset) => {
-              const network = parseNetworkFromNotes(asset.notes);
-              return (
-                <Link key={asset.id} href={`/assets/${asset.id}`} className="asset-mobile-card">
-                  <div className="asset-mobile-card__head">
-                    <span className="asset-mobile-card__name">{asset.name}</span>
-                    <span className="asset-type-badge">{asset.type}</span>
-                  </div>
-                  {network.ip ? (
-                    <p className="asset-mobile-card__row">
-                      <span>IP</span> {network.ip}
-                    </p>
-                  ) : null}
-                  {network.mac ? (
-                    <p className="asset-mobile-card__row">
-                      <span>MAC</span> {network.mac}
-                    </p>
-                  ) : null}
-                  <p className="asset-mobile-card__site">{asset.site_name}</p>
-                </Link>
-              );
-            })}
-          </section>
+          <AssetMobileList assets={assets} />
         </>
       )}
     </main>

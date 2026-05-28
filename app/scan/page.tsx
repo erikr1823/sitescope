@@ -317,7 +317,7 @@ export default function NetworkScanPage() {
   }
 
   return (
-    <main className="page scan-page">
+    <main className="page scan-page mobile-safe-page">
       <header className="page__header">
         <div>
           <h1 className="page__title">Network Scan Console</h1>

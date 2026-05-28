@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import FeedbackPanel from "../components/FeedbackPanel";
 
 type Client = {
   id?: number;
@@ -15,9 +16,14 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadClients() {
+      setIsLoading(true);
+      setError("");
       try {
         const response = await fetch("/api/clients");
 
@@ -26,19 +32,25 @@ export default function ClientsPage() {
         }
 
         const data = (await response.json()) as Client[];
-        setClients(data);
+        if (!cancelled) setClients(data);
       } catch {
-        setError("Unable to load clients right now.");
+        if (!cancelled) {
+          setClients([]);
+          setError("We couldn't load clients. Check your connection and try again.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
-    loadClients();
-  }, []);
+    void loadClients();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   return (
-    <main className="page dashboard-page">
+    <main className="page dashboard-page mobile-safe-page">
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
@@ -73,9 +85,13 @@ export default function ClientsPage() {
           </div>
         </section>
       ) : error ? (
-        <section className="card">
-          <p className="error">{error}</p>
-        </section>
+        <FeedbackPanel
+          title="Clients unavailable"
+          message={error}
+          tone="error"
+          actionLabel="Try again"
+          onAction={() => setReloadKey((key) => key + 1)}
+        />
       ) : (
         <section className="card table-wrap" aria-labelledby="clients-directory-title">
           <header className="form-card__head">
@@ -124,7 +140,7 @@ export default function ClientsPage() {
                       {client.id ? (
                         <Link
                           href={`/clients/${client.id}`}
-                          className="btn-secondary inline-flex max-md:w-full max-md:justify-center"
+                          className="btn-secondary mobile-touch-btn inline-flex max-md:w-full max-md:justify-center"
                         >
                           View sites
                         </Link>

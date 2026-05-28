@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import FeedbackPanel from "../../components/FeedbackPanel";
 import { useAppUser } from "../../components/AppUserProvider";
 import { roleLabel, type AppRole } from "../../../lib/roles";
 
@@ -37,7 +38,7 @@ export default function AdminUsersPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     setIsLoading(true);
     setError("");
     try {
@@ -48,11 +49,13 @@ export default function AdminUsersPage() {
       }
       setUsers(payload as UserRow[]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to load users.");
+      setError(
+        err instanceof Error ? err.message : "We couldn't load users. Please try again."
+      );
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     if (isAdmin) {
@@ -60,7 +63,7 @@ export default function AdminUsersPage() {
     } else if (!profileLoading) {
       setIsLoading(false);
     }
-  }, [isAdmin, profileLoading]);
+  }, [isAdmin, profileLoading, loadUsers]);
 
   async function handleCreateUser(event: React.FormEvent) {
     event.preventDefault();
@@ -115,7 +118,7 @@ export default function AdminUsersPage() {
 
   if (profileLoading) {
     return (
-      <main className="page dashboard-page">
+      <main className="page dashboard-page mobile-safe-page">
         <section className="card" aria-label="Loading admin users">
           <div className="skeleton-line skeleton-line--title" />
           <div className="skeleton-table">
@@ -129,10 +132,10 @@ export default function AdminUsersPage() {
 
   if (!isAdmin) {
     return (
-      <main className="page dashboard-page">
+      <main className="page dashboard-page mobile-safe-page">
         <section className="card">
           <h1 className="page__title">User management</h1>
-          <p className="error">
+          <p className="feedback-panel__message feedback-panel__message--error">
             {profileError ||
               "Admin access required. Contact an administrator if you need access."}
           </p>
@@ -142,7 +145,7 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <main className="page dashboard-page">
+    <main className="page dashboard-page mobile-safe-page">
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
@@ -185,7 +188,7 @@ export default function AdminUsersPage() {
           <label className="form-field">
             <span className="form-label">Role</span>
             <select
-              className="form-input"
+              className="form-input mobile-touch-input"
               value={form.role}
               onChange={(e) => setForm({ ...form, role: e.target.value as AppRole })}
             >
@@ -204,14 +207,22 @@ export default function AdminUsersPage() {
           </label>
           {formError ? <p className="error">{formError}</p> : null}
           <div className="form-actions">
-            <button type="submit" className="btn" disabled={isSaving}>
+            <button type="submit" className="btn mobile-touch-btn" disabled={isSaving}>
               {isSaving ? "Creating…" : "Create user"}
             </button>
           </div>
         </form>
       </section>
 
-      {error ? <p className="error">{error}</p> : null}
+      {error ? (
+        <FeedbackPanel
+          title="Could not update users"
+          message={error}
+          tone="error"
+          actionLabel="Reload users"
+          onAction={() => void loadUsers()}
+        />
+      ) : null}
 
       {isLoading ? (
         <section className="card" aria-label="Loading users">
@@ -276,7 +287,12 @@ export default function AdminUsersPage() {
           </section>
 
           <section className="admin-users-cards md:hidden" aria-label="Users cards">
-            {users.map((user) => (
+            {users.length === 0 ? (
+              <section className="card">
+                <p className="status">No users found. Add the first user above.</p>
+              </section>
+            ) : (
+              users.map((user) => (
               <article key={user.id} className="card admin-user-card">
                 <div className="admin-user-card__head">
                   <h3 className="admin-user-card__name">{user.name}</h3>
@@ -311,7 +327,8 @@ export default function AdminUsersPage() {
                   </button>
                 </div>
               </article>
-            ))}
+              ))
+            )}
           </section>
         </>
       )}

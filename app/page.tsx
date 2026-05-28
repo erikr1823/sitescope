@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import FeedbackPanel from "./components/FeedbackPanel";
 import {
   Area,
   AreaChart,
@@ -79,24 +80,36 @@ export default function DashboardHomePage() {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
     async function load() {
+      setIsLoading(true);
+      setError("");
       try {
         const response = await fetch("/api/dashboard");
         if (!response.ok) {
           throw new Error("Failed to load dashboard");
         }
         const payload = (await response.json()) as DashboardPayload;
-        setData(payload);
+        if (!cancelled) setData(payload);
       } catch {
-        setError("Unable to load dashboard right now.");
+        if (!cancelled) {
+          setData(null);
+          setError("We couldn't load dashboard data. Check your connection and try again.");
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
-    load();
-  }, []);
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
 
   const weekTrend =
     data && data.assets_last_week > 0
@@ -106,7 +119,7 @@ export default function DashboardHomePage() {
       : null;
 
   return (
-    <main className="page dashboard-page">
+    <main className="page dashboard-page mobile-safe-page">
       <header className="dashboard-hero">
         <div className="dashboard-hero__row">
           <div>
@@ -161,7 +174,13 @@ export default function DashboardHomePage() {
           </section>
         </>
       ) : error ? (
-        <p className="error">{error}</p>
+        <FeedbackPanel
+          title="Dashboard unavailable"
+          message={error}
+          tone="error"
+          actionLabel="Try again"
+          onAction={() => setReloadKey((key) => key + 1)}
+        />
       ) : data ? (
         <>
           <section className="dashboard-stat-grid dashboard-stat-grid--four" aria-label="Summary statistics">
@@ -246,7 +265,12 @@ export default function DashboardHomePage() {
                   </h2>
                 </header>
                 {data.recent_assets.length === 0 ? (
-                  <p className="status">No assets yet.</p>
+                  <div className="empty-state">
+                    <p className="status">No assets yet. Add inventory from a site or scan.</p>
+                    <Link href="/assets" className="btn-secondary mobile-touch-btn">
+                      View inventory
+                    </Link>
+                  </div>
                 ) : (
                   <ul className="dashboard-recent-list">
                     {data.recent_assets.map((asset) => (
@@ -274,7 +298,12 @@ export default function DashboardHomePage() {
                   </h2>
                 </header>
                 {data.site_health.length === 0 ? (
-                  <p className="status">No sites yet.</p>
+                  <div className="empty-state">
+                    <p className="status">No sites yet. Add a client and site to see health data.</p>
+                    <Link href="/clients" className="btn-secondary mobile-touch-btn">
+                      Open clients
+                    </Link>
+                  </div>
                 ) : (
                   <ul className="site-health-list">
                     {data.site_health.map((site) => (
